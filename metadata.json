@@ -1,0 +1,7 @@
+{
+  "name": "ServiceOps Enterprise",
+  "description": "Enterprise-level digital service operations platform for managing field service job cards, inspections, pricing controls, approval workflows, and diagnostic decision support.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
