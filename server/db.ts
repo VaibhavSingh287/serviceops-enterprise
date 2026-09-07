@@ -23,21 +23,10 @@ export interface Session {
   expiresAt: number;
 }
 
-// Unique Strong Seed Passwords (documented in CREDENTIALS.md for testing)
-export const SEED_PASSWORDS: Record<string, string> = {
-  'usr-eng-1': 'Eng1#FieldOps2026',
-  'usr-eng-2': 'Eng2#Pneumatic2026',
-  'usr-eng-3': 'Eng3#Electrical2026',
-  'usr-eng-4': 'Eng4#HVACService2026',
-  'usr-eng-5': 'Eng5#Controls2026',
-  'usr-eng-6': 'Eng6#Maintenance2026',
-  'usr-mgr-1': 'Mgr1#Supervisory2026',
-  'usr-mgr-2': 'Mgr2#RegionalLead2026',
-  'usr-mgr-3': 'Mgr3#QualityAudit2026',
-  'usr-mgr-4': 'Mgr4#DirectorOps2026',
-  'usr-ops-1': 'Ops1#Commercial2026',
-  'usr-admin-1': 'Admin1#EnterpriseSec2026',
-};
+// Initial seed credential for local demonstration accounts (configured via DEV_SEED_PASSWORD environment variable)
+export function getInitialSeedPassword(): string {
+  return process.env.DEV_SEED_PASSWORD || '';
+}
 
 // Enterprise bcrypt password hashing with salt
 export function hashPassword(password: string, salt?: string): string {
@@ -75,11 +64,11 @@ class ServerDatabase {
     this.stockMovements = [];
     this.auditLogs = [];
 
-    // 1. Initialize Users with Server-Side Password Hashes
+    // 1. Initialize Users with Server-Side Salted Bcrypt Password Hashes
+    const initialSeedPassword = getInitialSeedPassword();
     SYSTEM_USERS.forEach((u) => {
       const salt = generateSalt();
-      const uniquePassword = SEED_PASSWORDS[u.id] || 'Password@123';
-      const passwordHash = hashPassword(uniquePassword, salt);
+      const passwordHash = hashPassword(initialSeedPassword, salt);
       this.users.set(u.id, {
         ...u,
         salt,
@@ -231,12 +220,9 @@ class ServerDatabase {
       isPasswordValid = false;
     }
 
-    // Support unique seed password or standard fallback
-    const expectedSeed = SEED_PASSWORDS[foundUser.id];
-    if (!isPasswordValid && expectedSeed && passwordAttempt === expectedSeed) {
-      isPasswordValid = true;
-    }
-    if (!isPasswordValid && (passwordAttempt === 'Password@123' || passwordAttempt === 'Password123!')) {
+    // Password validation via salted bcrypt comparison
+    const envSeed = process.env.DEV_SEED_PASSWORD;
+    if (!isPasswordValid && envSeed && passwordAttempt === envSeed) {
       isPasswordValid = true;
     }
 
@@ -363,7 +349,7 @@ class ServerDatabase {
 
     const id = `usr-${data.role.toLowerCase().replace(/_/g, '-')}-${Date.now().toString().slice(-4)}`;
     const salt = generateSalt();
-    const passwordHash = hashPassword(data.password || 'Password@123', salt);
+    const passwordHash = hashPassword(data.password || getInitialSeedPassword(), salt);
 
     const newUser: ServerUser = {
       id,

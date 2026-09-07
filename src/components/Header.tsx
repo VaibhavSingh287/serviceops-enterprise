@@ -238,7 +238,7 @@ export const Header: React.FC = () => {
           )}
         </div>
 
-        {/* User Profile Card (Authentic session, no persona switching) */}
+        {/* User Profile Menu */}
         <div className="relative" ref={userDropdownRef}>
           <button
             id="btn-header-user-menu"

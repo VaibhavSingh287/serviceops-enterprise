@@ -26,7 +26,17 @@ The system enforces strict multi-role governance across four corporate operation
 | **Operations** | Inventory & Commercial Review | Manage warehouse inventory, execute stock adjustments with mandatory audit reasons, perform commercial pricing checks. |
 | **Admin** | System Administration & Audit | Manage user accounts, organizational reporting hierarchies, access permissions, and enterprise audit logs. |
 
-*Detailed credentials and seed accounts for verification are documented in `CREDENTIALS.md`.*
+*Demonstration accounts and organizational reporting hierarchy are documented in [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md).*
+
+---
+
+## Organizational Hierarchy & Governance
+
+The platform implements hierarchical team governance:
+- Field Engineers report to designated Service Managers.
+- Service Managers can view and govern work orders exclusively for engineers within their direct reporting line.
+- Commercial & Inventory Operations manage parts catalogs, unit economics, and stock adjustments.
+- System Administrators govern account credentials, team assignments, system health, and immutable audit logs.
 
 ---
 
@@ -34,37 +44,40 @@ The system enforces strict multi-role governance across four corporate operation
 
 - **Frontend**: React 19, TypeScript, Tailwind CSS, Motion, Lucide Icons
 - **Backend**: Express HTTP Server, TypeScript (`tsx` in dev, `esbuild` bundled CJS for production)
-- **Intelligence**: `@google/genai` with deterministic fallback mechanisms
-- **Security**: Salted bcrypt password encryption, signed HMAC JWT token authorization
+- **Intelligence**: `@google/genai` diagnostic decision support with deterministic fallback
+- **Security**: Salted bcrypt password encryption, server-authoritative session token authorization
 - **Build & Tooling**: Vite 6, Tailwind CSS v4, ESBuild
 
 ---
 
-## Getting Started
+## Local Development Setup
 
 ### Prerequisites
 
 - Node.js 20+
 - npm or bun
 
-### Installation
+### Installation & Configuration
 
 1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Configure environment variables:
+2. Configure local environment variables:
    ```bash
    cp .env.example .env
    ```
-   *(Optional: configure `GEMINI_API_KEY` for AI diagnostic assistance.)*
+   *Note: In `.env`, configure `DEV_SEED_PASSWORD` to set your demonstration account password, and optionally `GEMINI_API_KEY` for AI diagnostic assistance.*
 
-3. Launch development server:
+3. Launch the development server:
    ```bash
    npm run dev
    ```
    The application runs on `http://localhost:3000`.
+
+4. Authenticate:
+   Open `http://localhost:3000` and sign in with any account from [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) (e.g., `ENG-001`, `MGR-001`, `OPS-001`, or `ADM-001`) using the password configured in `DEV_SEED_PASSWORD`.
 
 ### Production Build
 

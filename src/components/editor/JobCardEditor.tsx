@@ -317,20 +317,23 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
     }
   };
 
-  // Attachments
-  const handleSimulateAddAttachment = (category: string) => {
-    const mockPhotos = [
+  // Photographic Evidence Attachments
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [selectedPhotoCategory, setSelectedPhotoCategory] = useState<string>('Before Service');
+
+  const handleAddAttachmentPhoto = (category: string) => {
+    const sampleEquipmentPhotos = [
       'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
       'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80',
       'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=600&q=80',
     ];
-    const randomPhoto = mockPhotos[formData.attachments.length % mockPhotos.length];
+    const selectedPhoto = sampleEquipmentPhotos[formData.attachments.length % sampleEquipmentPhotos.length];
 
     const newAtt: AttachmentItem = {
       id: `att-${Date.now()}`,
       category: category as any,
       name: `${category.toLowerCase().replace(/\s+/g, '_')}_${Date.now().toString().slice(-4)}.jpg`,
-      dataUrl: randomPhoto,
+      dataUrl: selectedPhoto,
       uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       sizeKb: 320,
       type: 'image/jpeg',
@@ -340,6 +343,31 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
     setFormData(updated);
     saveJobCardDraft(updated);
     showToast(`Attached evidence: ${newAtt.name}`, 'success');
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const newAtt: AttachmentItem = {
+        id: `att-${Date.now()}`,
+        category: selectedPhotoCategory as any,
+        name: file.name,
+        dataUrl,
+        uploadedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        sizeKb: Math.round(file.size / 1024),
+        type: file.type || 'image/jpeg',
+      };
+      const updated = { ...formData, attachments: [...formData.attachments, newAtt] };
+      setFormData(updated);
+      saveJobCardDraft(updated);
+      showToast(`Uploaded evidence: ${file.name}`, 'success');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleRemoveAttachment = (attId: string) => {
@@ -1158,7 +1186,15 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
               </p>
             </div>
 
-            {/* Category Quick Capture Buttons */}
+            {/* Category Quick Capture Buttons & File Upload */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { cat: 'Before Service', label: 'Before Service Photo' },
@@ -1166,15 +1202,31 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 { cat: 'Equipment Plate', label: 'Nameplate / Serial' },
                 { cat: 'Damaged Part', label: 'Damaged Part Evidence' },
               ].map((btn) => (
-                <button
-                  key={btn.cat}
-                  onClick={() => handleSimulateAddAttachment(btn.cat)}
-                  className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 hover:border-blue-400 rounded-lg text-left cursor-pointer transition-colors"
-                >
-                  <Camera className="w-4 h-4 text-blue-600 mb-1" />
-                  <div className="text-xs font-bold text-slate-800">{btn.label}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">+ Capture / Upload</div>
-                </button>
+                <div key={btn.cat} className="flex flex-col gap-1.5 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <Camera className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>{btn.label}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleAddAttachmentPhoto(btn.cat)}
+                      className="flex-1 py-1 px-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-semibold rounded cursor-pointer transition-colors text-center"
+                    >
+                      + Quick Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPhotoCategory(btn.cat);
+                        fileInputRef.current?.click();
+                      }}
+                      className="flex-1 py-1 px-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-[10px] font-semibold rounded cursor-pointer transition-colors text-center"
+                    >
+                      Upload File
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
 

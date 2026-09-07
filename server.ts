@@ -20,7 +20,7 @@ function extractSessionToken(req: any): string | undefined {
   }
   const cookieHeader = req.headers.cookie;
   if (cookieHeader) {
-    const match = cookieHeader.match(/(?:^|;\s*)opsflow_session=([^;]+)/);
+    const match = cookieHeader.match(/(?:^|;\s*)serviceops_session=([^;]+)/);
     if (match) {
       return decodeURIComponent(match[1]);
     }
@@ -89,7 +89,7 @@ app.post('/api/auth/login', (req, res) => {
   // Set secure HttpOnly session cookie
   res.setHeader(
     'Set-Cookie',
-    `opsflow_session=${encodeURIComponent(result.token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`
+    `serviceops_session=${encodeURIComponent(result.token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`
   );
 
   res.json(result);
@@ -102,7 +102,7 @@ app.post('/api/auth/logout', authenticateToken, (req: any, res) => {
   }
   res.setHeader(
     'Set-Cookie',
-    'opsflow_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'
+    'serviceops_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'
   );
   res.json({ status: 'ok', message: 'Logged out successfully' });
 });

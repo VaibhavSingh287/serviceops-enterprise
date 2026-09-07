@@ -68,7 +68,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const AUTH_TOKEN_KEY = 'opsflow_auth_token_v2';
+const AUTH_TOKEN_KEY = 'serviceops_auth_token_v2';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => {

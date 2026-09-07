@@ -62,7 +62,7 @@ export const JobCardDocumentModal: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-xl font-extrabold text-slate-900 tracking-tight uppercase">
-                  OPSFLOW SERVICE OPERATIONS
+                  SERVICEOPS ENTERPRISE
                 </h1>
                 <p className="text-xs text-slate-500">
                   Industrial Machinery Field Service & Compliance Record
