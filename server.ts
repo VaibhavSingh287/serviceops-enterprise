@@ -254,8 +254,8 @@ app.post('/api/jobcards/:id/request-changes', authenticateToken, (req: any, res)
 });
 
 app.post('/api/jobcards/:id/reject', authenticateToken, (req: any, res) => {
-  const { reason } = req.body;
-  const result = db.rejectJobCard(req.user, req.params.id, reason || 'Rejected by manager');
+  const { reason, justification } = req.body;
+  const result = db.rejectJobCard(req.user, req.params.id, reason || justification || '');
   if (result.status !== 200) {
     return res.status(result.status).json({ error: result.error });
   }

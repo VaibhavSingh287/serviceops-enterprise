@@ -618,6 +618,17 @@ export const INITIAL_JOB_CARDS: JobCard[] = [
         details: 'Step 4 completed; pricing recalculations verified',
       },
     ],
+
+    customerSignOff: {
+      signeeName: 'Rajesh Verma',
+      signeeDesignation: 'Head of Plant Engineering',
+      signeePhone: '+91 91234 56780',
+      signatureDate: '2026-09-05',
+      signatureDataUrl: '',
+      remarks: '',
+      isConfirmed: false,
+    },
+    revisionHistory: [],
     
     createdAt: '2026-09-05 09:30 AM',
     updatedAt: '2026-09-05 11:42 AM',
@@ -731,6 +742,17 @@ export const INITIAL_JOB_CARDS: JobCard[] = [
       { id: 'aud-12', timestamp: '2026-09-04 05:30 PM', userId: 'usr-eng-2', userName: 'Eng 2', userRole: 'FIELD_ENGINEER', action: 'Submitted for Review', details: 'Job completed and sent to Manager 1 queue', statusChange: { from: 'In Progress', to: 'Pending Review' } },
     ],
     
+    customerSignOff: {
+      signeeName: 'Sunil Mehta',
+      signeeDesignation: 'Operations Supervisor',
+      signeePhone: '+91 91234 56781',
+      signatureDate: '2026-09-04',
+      signatureDataUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="30"><text y="20" font-family="cursive" font-size="18" fill="%230f172a">Sunil Mehta</text></svg>',
+      remarks: 'Coolant temperature normalized. Tested on 400kW load bank with no leaks.',
+      isConfirmed: true,
+    },
+    revisionHistory: [],
+    
     createdAt: '2026-09-04 01:15 PM',
     updatedAt: '2026-09-04 05:30 PM',
     lastSavedAt: 'Yesterday, 5:30 PM',
@@ -807,6 +829,27 @@ export const INITIAL_JOB_CARDS: JobCard[] = [
     
     managerNotes: 'Please add the dynamic discharge pressure reading log and attach the after-service photo showing the new seal installation.',
     changesRequestedSections: ['Inspection', 'Attachments'],
+    
+    customerSignOff: {
+      signeeName: 'Pravin Shah',
+      signeeDesignation: 'EHS & Facilities Coordinator',
+      signeePhone: '+91 91234 56782',
+      signatureDate: '2026-09-03',
+      signatureDataUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="30"><text y="20" font-family="cursive" font-size="18" fill="%230f172a">P. Shah</text></svg>',
+      remarks: 'Quarterly PM executed. Awaiting pressure test report attachment.',
+      isConfirmed: true,
+    },
+    revisionHistory: [
+      {
+        id: 'rev-01',
+        requestedAt: '2026-09-03 03:40 PM',
+        managerId: 'usr-mgr-1',
+        managerName: 'Manager 1',
+        notes: 'Please add the dynamic discharge pressure reading log and attach the after-service photo showing the new seal installation.',
+        sections: ['Inspection', 'Attachments'],
+        status: 'Pending',
+      },
+    ],
     
     auditTrail: [
       { id: 'aud-20', timestamp: '2026-09-03 09:00 AM', userId: 'usr-eng-3', userName: 'Eng 3', userRole: 'FIELD_ENGINEER', action: 'Started Service', details: 'Commenced scheduled PM' },
@@ -888,13 +931,24 @@ export const INITIAL_JOB_CARDS: JobCard[] = [
       isApprovedPricing: true,
     },
     
-    approvedBy: 'Manager 1',
+    approvedBy: 'Manager 2',
     approvedAt: '2026-09-02 04:30 PM',
+    
+    customerSignOff: {
+      signeeName: 'Mahesh Joshi',
+      signeeDesignation: 'Technical Facility Manager',
+      signeePhone: '+91 91234 56783',
+      signatureDate: '2026-09-02',
+      signatureDataUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="30"><text y="20" font-family="cursive" font-size="18" fill="%230f172a">M. Joshi</text></svg>',
+      remarks: 'Superheat calibrated to spec. Frosting issue resolved on evaporator.',
+      isConfirmed: true,
+    },
+    revisionHistory: [],
     
     auditTrail: [
       { id: 'aud-30', timestamp: '2026-09-02 11:00 AM', userId: 'usr-eng-4', userName: 'Eng 4', userRole: 'FIELD_ENGINEER', action: 'Service Started', details: 'Arrived at Bhiwandi site' },
-      { id: 'aud-31', timestamp: '2026-09-02 03:10 PM', userId: 'usr-eng-4', userName: 'Eng 4', userRole: 'FIELD_ENGINEER', action: 'Submitted', details: 'Submitted to Manager 1', statusChange: { from: 'In Progress', to: 'Pending Review' } },
-      { id: 'aud-32', timestamp: '2026-09-02 04:30 PM', userId: 'usr-mgr-1', userName: 'Manager 1', userRole: 'MANAGER', action: 'Job Card Approved', details: 'All checklist items and calibrated superheat data validated', statusChange: { from: 'Pending Review', to: 'Approved' } },
+      { id: 'aud-31', timestamp: '2026-09-02 03:10 PM', userId: 'usr-eng-4', userName: 'Eng 4', userRole: 'FIELD_ENGINEER', action: 'Submitted', details: 'Submitted to Manager 2', statusChange: { from: 'In Progress', to: 'Pending Review' } },
+      { id: 'aud-32', timestamp: '2026-09-02 04:30 PM', userId: 'usr-mgr-2', userName: 'Manager 2', userRole: 'MANAGER', action: 'Job Card Approved', details: 'All checklist items and calibrated superheat data validated', statusChange: { from: 'Pending Review', to: 'Approved' } },
     ],
     
     createdAt: '2026-09-02 10:30 AM',
@@ -961,6 +1015,17 @@ export const INITIAL_JOB_CARDS: JobCard[] = [
     
     approvedBy: 'Manager 2',
     approvedAt: '2026-09-01 06:10 PM',
+    
+    customerSignOff: {
+      signeeName: 'BMS Central Desk Lead',
+      signeeDesignation: 'Infrastructure Control Manager',
+      signeePhone: '+91 91234 56784',
+      signatureDate: '2026-09-01',
+      signatureDataUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="30"><text y="20" font-family="cursive" font-size="18" fill="%230f172a">BMS Central</text></svg>',
+      remarks: 'Firmware upgrade verified without downtime. Backup copy received.',
+      isConfirmed: true,
+    },
+    revisionHistory: [],
     
     auditTrail: [
       { id: 'aud-40', timestamp: '2026-09-01 01:00 PM', userId: 'usr-eng-5', userName: 'Eng 5', userRole: 'FIELD_ENGINEER', action: 'Service Started', details: 'Commenced PLC audit' },

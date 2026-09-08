@@ -24,6 +24,8 @@ import {
   HelpCircle,
   X,
   RefreshCw,
+  Lock,
+  Check,
 } from 'lucide-react';
 
 export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) => {
@@ -66,8 +68,41 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
     );
   }
 
+  // Cross-engineer access guard: Field Engineers cannot view or edit other engineers' cards
+  const isAuthorized =
+    currentUser.role !== 'FIELD_ENGINEER' ||
+    formData.assignedEngineerId === currentUser.id ||
+    formData.assignedEngineerName === currentUser.name;
+
+  if (!isAuthorized) {
+    return (
+      <div className="p-12 max-w-md mx-auto text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">Access Restricted</h3>
+        <p className="text-xs text-slate-600">
+          Job Card <strong>{formData.id}</strong> is assigned to <strong>{formData.assignedEngineerName}</strong>. Field engineers may only access their own assigned records.
+        </p>
+        <button
+          onClick={() => setActiveJobCardId(null)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
+        >
+          Return to My Queue
+        </button>
+      </div>
+    );
+  }
+
+  const isReadOnly =
+    formData.status === 'Approved' ||
+    formData.status === 'Pending Review' ||
+    formData.status === 'Rejected' ||
+    formData.status === 'Completed';
+
   // Handle step completion tracking
   const markStepComplete = (stepNum: number) => {
+    if (isReadOnly) return;
     if (!formData.completedSteps.includes(stepNum)) {
       const updated = {
         ...formData,
@@ -81,7 +116,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
 
   const handleNextStep = () => {
     markStepComplete(activeStep);
-    if (activeStep < 7) {
+    if (activeStep < 8) {
       setActiveStep(activeStep + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -95,6 +130,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   };
 
   const handleManualSave = () => {
+    if (isReadOnly) return;
     setIsSaving(true);
     saveJobCardDraft(formData);
     setTimeout(() => {
@@ -380,9 +416,9 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   };
 
   // Final Submit
-  const handleConfirmSubmit = () => {
+  const handleConfirmSubmit = async () => {
     setSubmitConfirmOpen(false);
-    const success = submitJobCard(formData.id);
+    const success = await submitJobCard(formData.id);
     if (success) {
       setActiveJobCardId(null);
     }
@@ -396,22 +432,26 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
     { num: 4, title: 'Parts & Materials' },
     { num: 5, title: 'Work Performed' },
     { num: 6, title: 'Attachments' },
-    { num: 7, title: 'Review & Submit' },
+    { num: 7, title: 'Customer Sign-off' },
+    { num: 8, title: 'Review & Submit' },
   ];
 
-  // Validation checks for step 7
+  // Validation checks for pre-submission (step 8)
   const validationErrors: string[] = [];
   const validationWarnings: string[] = [];
 
   if (!formData.customerName) validationErrors.push('Customer information is missing');
   if (!formData.equipmentName) validationErrors.push('Equipment information is missing');
   if (!formData.serviceType) validationErrors.push('Service type must be selected');
-  if (!formData.workPerformed || formData.workPerformed.length < 15) {
+  if (!formData.workPerformed || formData.workPerformed.trim().length < 15) {
     validationErrors.push('Work performed description is required (min 15 characters)');
   }
   const pendingChecks = formData.checklist.filter((c) => c.status === 'Pending');
   if (pendingChecks.length > 0) {
     validationErrors.push(`${pendingChecks.length} checklist items remain uninspected`);
+  }
+  if (!formData.customerSignOff || !formData.customerSignOff.isConfirmed || !formData.customerSignOff.signeeName?.trim()) {
+    validationErrors.push('Customer signature is required before this Job Card can be submitted.');
   }
   const issuesFound = formData.checklist.filter((c) => c.status === 'Issue Found');
   if (issuesFound.length > 0 && formData.parts.length === 0) {
@@ -462,39 +502,88 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
               <FileText className="w-3.5 h-3.5 text-slate-500" />
               <span>Print / Export</span>
             </button>
-            <button
-              onClick={handleManualSave}
-              disabled={isSaving}
-              className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <Save className="w-3.5 h-3.5 text-slate-500" />
-              <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
-            </button>
-            {activeStep === 7 ? (
-              <button
-                onClick={() => setSubmitConfirmOpen(true)}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Submit for Review</span>
-              </button>
+            {isReadOnly ? (
+              <span className="px-3 py-1.5 bg-slate-100 border border-slate-200 text-slate-600 rounded text-xs font-semibold flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                <span>Locked ({formData.status})</span>
+              </span>
             ) : (
-              <button
-                onClick={handleNextStep}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <span>Next Step</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <>
+                <button
+                  onClick={handleManualSave}
+                  disabled={isSaving}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Save className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
+                </button>
+                {activeStep === 8 ? (
+                  <button
+                    onClick={() => setSubmitConfirmOpen(true)}
+                    disabled={validationErrors.length > 0}
+                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{formData.status === 'Changes Requested' ? 'Resubmit for Review' : 'Submit for Review'}</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleNextStep}
+                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <span>Next Step</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* Changes Requested Banner (if applicable) */}
-        {formData.status === 'Changes Requested' && (
-          <div className="bg-amber-50 border-t border-amber-200 px-6 py-2.5 text-xs text-amber-900 flex items-center justify-between">
+        {/* Status Lifecycle Banners */}
+        {formData.status === 'Approved' && (
+          <div className="bg-emerald-50 border-t border-emerald-200 px-6 py-2.5 text-xs text-emerald-900 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div>
+                <strong>Job Card Approved: </strong>
+                <span>Signed off by {formData.approvedBy || 'Manager'} on {formData.approvedAt || formData.updatedAt}. Record is finalized and locked.</span>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">READ ONLY</span>
+          </div>
+        )}
+
+        {formData.status === 'Pending Review' && (
+          <div className="bg-blue-50 border-t border-blue-200 px-6 py-2.5 text-xs text-blue-900 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+              <div>
+                <strong>Under Supervisory Review: </strong>
+                <span>Submitted and queued for Manager sign-off. Editing is locked.</span>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded">LOCKED</span>
+          </div>
+        )}
+
+        {formData.status === 'Rejected' && (
+          <div className="bg-rose-50 border-t border-rose-200 px-6 py-2.5 text-xs text-rose-900 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <div>
+                <strong>Job Card Rejected (Terminal Status): </strong>
+                <span>Reason: "{formData.rejectionReason || 'Supervisory rejection'}". Modifications and resubmissions are closed.</span>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded">TERMINAL</span>
+          </div>
+        )}
+
+        {formData.status === 'Changes Requested' && (
+          <div className="bg-amber-50 border-t border-amber-200 px-6 py-2.5 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
                 <strong>Manager Requested Revisions: </strong>
                 <span>"{formData.managerNotes || 'Please review highlighted checklist items and evidence.'}"</span>
@@ -505,12 +594,13 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 )}
               </div>
             </div>
+            <span className="font-mono font-bold text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded shrink-0">ACTION REQUIRED</span>
           </div>
         )}
 
         {/* Stepper Navigation Bar */}
         <div className="border-t border-slate-200 bg-slate-50 overflow-x-auto">
-          <div className="max-w-7xl mx-auto px-6 flex items-center justify-between min-w-[700px]">
+          <div className="max-w-7xl mx-auto px-6 flex items-center justify-between min-w-[750px]">
             {steps.map((step) => {
               const isCurrent = activeStep === step.num;
               const isDone = formData.completedSteps.includes(step.num);
@@ -1279,8 +1369,274 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
           </div>
         )}
 
-        {/* STEP 7: REVIEW & SUBMIT */}
+        {/* STEP 7: CUSTOMER SIGN-OFF */}
         {activeStep === 7 && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    Customer Authorization & On-Site Acceptance
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    A formal customer signature and sign-off confirmation is mandatory before this Job Card can be routed for manager review.
+                  </p>
+                </div>
+                {formData.customerSignOff?.isConfirmed ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-lg">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Signature Captured
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold rounded-lg">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                    Signature Required
+                  </span>
+                )}
+              </div>
+
+              {/* Customer Sign-off Form */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Client Representative Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    disabled={isReadOnly}
+                    value={formData.customerSignOff?.signeeName || ''}
+                    onChange={(e) => {
+                      const updated = {
+                        ...formData,
+                        customerSignOff: {
+                          ...(formData.customerSignOff || {
+                            isConfirmed: false,
+                            signatureDate: new Date().toISOString().split('T')[0],
+                          }),
+                          signeeName: e.target.value,
+                        },
+                      };
+                      setFormData(updated);
+                      saveJobCardDraft(updated);
+                    }}
+                    placeholder="e.g., Rajesh Mehta"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Designation / Role
+                  </label>
+                  <input
+                    type="text"
+                    disabled={isReadOnly}
+                    value={formData.customerSignOff?.signeeDesignation || ''}
+                    onChange={(e) => {
+                      const updated = {
+                        ...formData,
+                        customerSignOff: {
+                          ...(formData.customerSignOff || {
+                            isConfirmed: false,
+                            signatureDate: new Date().toISOString().split('T')[0],
+                          }),
+                          signeeDesignation: e.target.value,
+                        },
+                      };
+                      setFormData(updated);
+                      saveJobCardDraft(updated);
+                    }}
+                    placeholder="e.g., Plant Operations Lead / Facility Manager"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Contact Number
+                  </label>
+                  <input
+                    type="text"
+                    disabled={isReadOnly}
+                    value={formData.customerSignOff?.signeePhone || ''}
+                    onChange={(e) => {
+                      const updated = {
+                        ...formData,
+                        customerSignOff: {
+                          ...(formData.customerSignOff || {
+                            isConfirmed: false,
+                            signatureDate: new Date().toISOString().split('T')[0],
+                          }),
+                          signeePhone: e.target.value,
+                        },
+                      };
+                      setFormData(updated);
+                      saveJobCardDraft(updated);
+                    }}
+                    placeholder="e.g., +91 98200 12345"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Date of Acceptance
+                  </label>
+                  <input
+                    type="date"
+                    disabled={isReadOnly}
+                    value={formData.customerSignOff?.signatureDate || new Date().toISOString().split('T')[0]}
+                    onChange={(e) => {
+                      const updated = {
+                        ...formData,
+                        customerSignOff: {
+                          ...(formData.customerSignOff || {
+                            isConfirmed: false,
+                            signeeName: '',
+                          }),
+                          signatureDate: e.target.value,
+                        },
+                      };
+                      setFormData(updated);
+                      saveJobCardDraft(updated);
+                    }}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Customer Remarks / Handover Notes
+                </label>
+                <textarea
+                  rows={2}
+                  disabled={isReadOnly}
+                  value={formData.customerSignOff?.remarks || ''}
+                  onChange={(e) => {
+                    const updated = {
+                      ...formData,
+                      customerSignOff: {
+                        ...(formData.customerSignOff || {
+                          isConfirmed: false,
+                          signeeName: '',
+                          signatureDate: new Date().toISOString().split('T')[0],
+                        }),
+                        remarks: e.target.value,
+                      },
+                    };
+                    setFormData(updated);
+                    saveJobCardDraft(updated);
+                  }}
+                  placeholder="e.g., Machine tested under loaded RPM conditions. Work completed to satisfaction."
+                  className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
+                />
+              </div>
+
+              {/* Electronic Signature Box */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">
+                    Electronic Client Signature
+                  </span>
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const signName = formData.customerSignOff?.signeeName || formData.contactPerson || 'Authorized Client';
+                        const updated = {
+                          ...formData,
+                          customerSignOff: {
+                            isConfirmed: true,
+                            signeeName: signName,
+                            signeeDesignation: formData.customerSignOff?.signeeDesignation || 'Authorized Client Representative',
+                            signeePhone: formData.customerSignOff?.signeePhone || formData.contactPhone || '+91 98000 00000',
+                            signatureDate: new Date().toISOString().split('T')[0],
+                            remarks: formData.customerSignOff?.remarks || 'Work performed and parts installed verified on site.',
+                            signatureDataUrl: `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="50" viewBox="0 0 220 50"><text x="10" y="32" font-family="Brush Script MT, cursive" font-size="24" fill="#1e3a8a">${signName}</text><path d="M10,38 Q80,44 200,36" stroke="#2563eb" stroke-width="1.5" fill="none"/></svg>`,
+                          },
+                        };
+                        setFormData(updated);
+                        saveJobCardDraft(updated);
+                        showToast('Customer electronic signature captured', 'success');
+                      }}
+                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-xs font-semibold cursor-pointer transition-colors"
+                    >
+                      Use Stylus Signature
+                    </button>
+                  )}
+                </div>
+
+                <div className="h-24 bg-white border border-dashed border-slate-300 rounded-lg flex items-center justify-center p-3">
+                  {formData.customerSignOff?.signatureDataUrl ? (
+                    <div
+                      className="h-12 flex items-center justify-center"
+                      dangerouslySetInnerHTML={{
+                        __html: formData.customerSignOff.signatureDataUrl.includes('<svg')
+                          ? formData.customerSignOff.signatureDataUrl
+                          : `<span class="font-serif italic text-lg text-blue-900">${formData.customerSignOff.signeeName}</span>`,
+                      }}
+                    />
+                  ) : (
+                    <div className="text-center text-slate-400 text-xs">
+                      <ShieldCheck className="w-5 h-5 mx-auto mb-1 text-slate-300" />
+                      <span>Signature canvas pending. Click "Use Stylus Signature" or fill signee details to sign.</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Acceptance Confirmation Checkbox */}
+                <label className="flex items-start gap-2.5 pt-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    disabled={isReadOnly}
+                    checked={formData.customerSignOff?.isConfirmed || false}
+                    onChange={(e) => {
+                      const updated = {
+                        ...formData,
+                        customerSignOff: {
+                          ...(formData.customerSignOff || {
+                            signatureDate: new Date().toISOString().split('T')[0],
+                          }),
+                          signeeName: formData.customerSignOff?.signeeName || formData.contactPerson || 'Authorized Client',
+                          isConfirmed: e.target.checked,
+                        },
+                      };
+                      setFormData(updated);
+                      saveJobCardDraft(updated);
+                    }}
+                    className="w-4 h-4 mt-0.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                  />
+                  <span className="text-xs text-slate-700 leading-relaxed">
+                    I confirm that the service described in this Job Card has been inspected and acknowledged by the on-site client representative.
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Stepper Navigation */}
+            <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <button
+                onClick={handlePrevStep}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Attachments</span>
+              </button>
+              <button
+                onClick={handleNextStep}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Review & Submit</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 8: REVIEW & SUBMIT */}
+        {activeStep === 8 && (
           <div className="space-y-6">
             {/* Validation Feedback Banner */}
             {validationErrors.length > 0 && (
@@ -1316,6 +1672,58 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 </div>
               </div>
             )}
+
+            {/* Pre-Submission Readiness Matrix */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                Pre-Submission Lifecycle Verification
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-700">Customer & Machine Info:</span>
+                  {formData.customerName && formData.equipmentName ? (
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> Complete
+                    </span>
+                  ) : (
+                    <span className="text-red-600 font-bold">Missing</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-700">Inspection Checklist:</span>
+                  {pendingChecks.length === 0 ? (
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> All {formData.checklist.length} Inspected
+                    </span>
+                  ) : (
+                    <span className="text-red-600 font-bold">{pendingChecks.length} Pending</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-700">Technical Narrative:</span>
+                  {formData.workPerformed && formData.workPerformed.trim().length >= 15 ? (
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> Logged
+                    </span>
+                  ) : (
+                    <span className="text-red-600 font-bold">Incomplete</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-700">Customer Sign-Off:</span>
+                  {formData.customerSignOff?.isConfirmed && formData.customerSignOff.signeeName ? (
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> Signed ({formData.customerSignOff.signeeName})
+                    </span>
+                  ) : (
+                    <span className="text-red-600 font-bold">Sign-off Missing</span>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* AI Review Summary Card */}
             <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
@@ -1396,9 +1804,11 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
             {/* Submission Action Bar */}
             <div className="flex items-center justify-between bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
               <div>
-                <div className="text-sm font-bold text-slate-900">Ready to route to Manager?</div>
+                <div className="text-sm font-bold text-slate-900">
+                  {formData.status === 'Changes Requested' ? 'Ready to Resubmit to Manager?' : 'Ready to route to Manager?'}
+                </div>
                 <div className="text-xs text-slate-500">
-                  Submitting will lock engineer inputs and queue this card for supervisory signoff.
+                  Submitting will lock engineer inputs and queue this card for supervisory review.
                 </div>
               </div>
 
@@ -1415,7 +1825,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm transition-colors"
                 >
                   <Send className="w-4 h-4" />
-                  <span>Submit for Review</span>
+                  <span>{formData.status === 'Changes Requested' ? 'Resubmit for Review' : 'Submit for Review'}</span>
                 </button>
               </div>
             </div>

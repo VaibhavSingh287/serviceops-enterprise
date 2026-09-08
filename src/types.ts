@@ -89,6 +89,35 @@ export interface PricingBreakdown {
   isApprovedPricing?: boolean;
 }
 
+export interface CustomerSignOff {
+  signeeName?: string;
+  signedByName?: string;
+  signeeDesignation?: string;
+  signedByDesignation?: string;
+  signeePhone?: string;
+  contactPhone?: string;
+  signatureDate?: string;
+  signedAt?: string;
+  signatureDataUrl?: string; // canvas or digital signature stamp
+  remarks?: string;
+  isConfirmed: boolean;
+}
+
+export interface RevisionRequest {
+  id: string;
+  requestedAt: string;
+  managerId?: string;
+  managerName?: string;
+  requestedByName?: string;
+  notes?: string;
+  comments?: string;
+  sections: string[];
+  status?: 'Pending' | 'Addressed';
+  addressedAt?: string;
+  resubmittedAt?: string;
+  resubmittedNotes?: string;
+}
+
 export interface AuditEvent {
   id: string;
   timestamp: string;
@@ -168,9 +197,13 @@ export interface JobCard {
   attachments: AttachmentItem[];
   pricing: PricingBreakdown;
   
+  // Customer Authorization
+  customerSignOff?: CustomerSignOff;
+
   // Review & Approval data
   managerNotes?: string;
   changesRequestedSections?: string[];
+  revisionHistory?: RevisionRequest[];
   rejectionReason?: string;
   approvedBy?: string;
   approvedAt?: string;

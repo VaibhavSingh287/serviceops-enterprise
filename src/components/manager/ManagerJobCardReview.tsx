@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { JobCard } from '../../types';
 import { StatusBadge, PriorityBadge } from '../common/StatusBadge';
@@ -20,6 +20,7 @@ import {
   Send,
   Printer,
   ChevronRight,
+  FileSignature,
 } from 'lucide-react';
 
 export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardId }) => {
@@ -54,6 +55,13 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
   const [verifiedPartsUsage, setVerifiedPartsUsage] = useState(false);
   const [managerNotes, setManagerNotes] = useState('');
 
+  // Auto-check customer signature verification if customer sign-off is confirmed
+  useEffect(() => {
+    if (card?.customerSignOff?.isConfirmed) {
+      setVerifiedCustomerSignature(true);
+    }
+  }, [card?.id, card?.customerSignOff?.isConfirmed]);
+
   if (!card) {
     return (
       <div className="p-8 text-center text-slate-500">
@@ -62,24 +70,31 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
     );
   }
 
-  const handleApproveConfirm = () => {
-    approveJobCard(card.id, approveNotes);
+  const handleApproveConfirm = async () => {
+    const notes = approveNotes.trim() || managerNotes.trim() || 'Manager verified and authorized sign-off.';
+    const success = await approveJobCard(card.id, notes);
     setApproveModalOpen(false);
-    setActiveJobCardId(null);
+    if (success) {
+      setActiveJobCardId(null);
+    }
   };
 
-  const handleChangesConfirm = () => {
+  const handleChangesConfirm = async () => {
     if (!changesComments.trim()) return;
-    requestChanges(card.id, changesSections, changesComments);
+    const success = await requestChanges(card.id, changesSections, changesComments.trim());
     setChangesModalOpen(false);
-    setActiveJobCardId(null);
+    if (success) {
+      setActiveJobCardId(null);
+    }
   };
 
-  const handleRejectConfirm = () => {
+  const handleRejectConfirm = async () => {
     if (!rejectComments.trim()) return;
-    rejectJobCard(card.id, rejectReason, rejectComments);
+    const success = await rejectJobCard(card.id, rejectReason, rejectComments.trim());
     setRejectModalOpen(false);
-    setActiveJobCardId(null);
+    if (success) {
+      setActiveJobCardId(null);
+    }
   };
 
   const issuesFound = card.checklist.filter((c) => c.status === 'Issue Found');
@@ -121,10 +136,13 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
               <span>Print Document</span>
             </button>
 
-            {card.status !== 'Approved' && card.status !== 'Completed' && (
+            {card.status === 'Pending Review' || card.status === 'Submitted' ? (
               <>
                 <button
-                  onClick={() => setRejectModalOpen(true)}
+                  onClick={() => {
+                    setRejectComments(managerNotes);
+                    setRejectModalOpen(true);
+                  }}
                   className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
                   <XCircle className="w-3.5 h-3.5" />
@@ -132,7 +150,10 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                 </button>
 
                 <button
-                  onClick={() => setChangesModalOpen(true)}
+                  onClick={() => {
+                    setChangesComments(managerNotes);
+                    setChangesModalOpen(true);
+                  }}
                   className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
@@ -140,13 +161,20 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                 </button>
 
                 <button
-                  onClick={() => setApproveModalOpen(true)}
-                  className="px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm transition-colors"
+                  onClick={() => {
+                    setApproveNotes(managerNotes);
+                    setApproveModalOpen(true);
+                  }}
+                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Approve Job Card</span>
                 </button>
               </>
+            ) : (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                {card.status}
+              </span>
             )}
           </div>
         </div>
@@ -269,7 +297,7 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                 </div>
 
                 {/* Formal Action Buttons */}
-                {card.status !== 'Approved' && card.status !== 'Completed' ? (
+                {card.status === 'Pending Review' || card.status === 'Submitted' ? (
                   <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-slate-100">
                     <button
                       onClick={() => {
@@ -302,10 +330,34 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                       <span>Approve Job Card</span>
                     </button>
                   </div>
+                ) : card.status === 'Approved' || card.status === 'Completed' ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center justify-between font-medium">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>This Job Card has been signed off and approved by {card.approvedBy || 'Manager'}. Record is finalized and locked.</span>
+                    </div>
+                    <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">APPROVED</span>
+                  </div>
+                ) : card.status === 'Rejected' ? (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-900 flex items-center justify-between font-medium">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>Job Card rejected (terminal state). Reason: "{card.rejectionReason || 'Supervisory rejection'}". Closed to resubmission.</span>
+                    </div>
+                    <span className="font-mono text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold">REJECTED</span>
+                  </div>
+                ) : card.status === 'Changes Requested' ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-center justify-between font-medium">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Changes requested from engineer ({card.assignedEngineerName}). Feedback: "{card.managerNotes}". Awaiting engineer resubmission.</span>
+                    </div>
+                    <span className="font-mono text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">PENDING REVISION</span>
+                  </div>
                 ) : (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>This Job Card has been signed off and approved. Record is finalized.</span>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 flex items-center justify-between font-medium">
+                    <span>Card is in {card.status} status. Only cards in "Pending Review" can be approved or rejected.</span>
+                    <span className="font-mono text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">{card.status.toUpperCase()}</span>
                   </div>
                 )}
               </div>
@@ -409,6 +461,106 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                 </div>
               </div>
             </div>
+
+            {/* Customer On-Site Acceptance & Electronic Signature */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs">
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <FileSignature className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-sm font-bold text-slate-900">Customer On-Site Acceptance</h3>
+                </div>
+                {card.customerSignOff?.isConfirmed ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Confirmed & Signed
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Pending Sign-Off
+                  </span>
+                )}
+              </div>
+
+              {card.customerSignOff?.isConfirmed ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-1 text-xs text-slate-600">
+                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Representative</div>
+                    <div className="font-bold text-slate-900 text-sm">{card.customerSignOff.signedByName}</div>
+                    <div>{card.customerSignOff.signedByDesignation || 'Authorized Representative'}</div>
+                    {card.customerSignOff.contactPhone && (
+                      <div className="text-slate-500">Phone: {card.customerSignOff.contactPhone}</div>
+                    )}
+                    <div className="text-[11px] text-slate-400 pt-1 font-mono">
+                      Timestamp: {new Date(card.customerSignOff.signedAt).toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 text-xs text-slate-600">
+                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Customer Feedback</div>
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg italic text-slate-700">
+                      "{card.customerSignOff.remarks || 'Work verified satisfactorily on site.'}"
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Electronic Signature Stamp</div>
+                    <div className="font-serif text-lg italic text-blue-900 border-b-2 border-blue-900 px-6 py-1 select-none">
+                      {card.customerSignOff.signedByName}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-2 font-mono">Verified Digital Sign-Off</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Customer sign-off has not yet been recorded.</span>
+                    <p className="mt-0.5 text-amber-800">
+                      Standard enterprise SOP requires verified customer acceptance before supervisory sign-off.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Revision History Audit Trail */}
+            {card.revisionHistory && card.revisionHistory.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <History className="w-4 h-4 text-orange-600" />
+                  <h3 className="text-sm font-bold text-slate-900">Revision Audit Log ({card.revisionHistory.length} Cycles)</h3>
+                </div>
+
+                <div className="space-y-3">
+                  {card.revisionHistory.map((rev) => (
+                    <div key={rev.id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900">Revision requested by {rev.requestedByName}</span>
+                        <span className="text-slate-400 font-mono text-[11px]">
+                          {new Date(rev.requestedAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {rev.sections.map((s) => (
+                          <span key={s} className="px-2 py-0.5 rounded bg-orange-100 text-orange-800 text-[10px] font-bold">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-slate-700 bg-white p-2.5 rounded border border-slate-200">
+                        {rev.comments}
+                      </p>
+                      {rev.resubmittedAt && (
+                        <div className="text-emerald-700 text-[11px] font-medium pt-1">
+                          ✓ Resubmitted on {new Date(rev.resubmittedAt).toLocaleString()}: "{rev.resubmittedNotes || 'Addressed revisions'}"
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -685,8 +837,20 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
               </p>
             </div>
 
+            {card.customerSignOff?.isConfirmed ? (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Customer sign-off confirmed by <strong>{card.customerSignOff.signedByName}</strong>.</span>
+              </div>
+            ) : (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>Customer sign-off not recorded. Manager approval will override customer sign-off.</span>
+              </div>
+            )}
+
             <div className="space-y-1.5 text-left">
-              <label className="text-xs font-bold text-slate-700">Manager Sign-Off Remarks (Optional)</label>
+              <label className="text-xs font-bold text-slate-700">Manager Sign-Off Remarks</label>
               <textarea
                 rows={3}
                 value={approveNotes}

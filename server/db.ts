@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { User, JobCard, Customer, Equipment, InventoryItem, AuditLogEntry, StockMovement } from '../src/types';
+import { User, JobCard, Customer, Equipment, InventoryItem, AuditLogEntry, StockMovement, RevisionRequest, JobCardStatus } from '../src/types';
 import {
   SYSTEM_USERS,
   INITIAL_CUSTOMERS,
@@ -578,6 +578,16 @@ class ServerDatabase {
         tax: 180,
         total: 1180,
       },
+      customerSignOff: data.customerSignOff || {
+        signeeName: data.contactPerson || '',
+        signeeDesignation: 'Site Operations Representative',
+        signeePhone: data.contactPhone || '',
+        signatureDate: new Date().toISOString().split('T')[0],
+        signatureDataUrl: '',
+        remarks: '',
+        isConfirmed: false,
+      },
+      revisionHistory: [],
       auditTrail: [
         {
           id: `aud-${Date.now()}`,
@@ -609,7 +619,7 @@ class ServerDatabase {
     return { status: 201, card: newCard };
   }
 
-  // Update Job Card with RBAC checks
+  // Update Job Card with RBAC checks & lifecycle validation
   public updateJobCard(
     user: User,
     jobCardId: string,
@@ -617,6 +627,21 @@ class ServerDatabase {
   ): { status: number; card?: JobCard; error?: string } {
     const card = this.jobCards.get(jobCardId);
     if (!card) return { status: 404, error: 'Job Card not found' };
+
+    // Terminal and Locked Status Enforcements
+    if (card.status === 'Approved' || card.status === 'Completed' || card.status === 'Rejected') {
+      return {
+        status: 403,
+        error: `Forbidden: Cannot modify Job Card in finalized status "${card.status}".`,
+      };
+    }
+
+    if (card.status === 'Pending Review') {
+      return {
+        status: 403,
+        error: 'Forbidden: Job Card is locked while under supervisory review.',
+      };
+    }
 
     if (user.role === 'FIELD_ENGINEER') {
       if (card.assignedEngineerId !== user.id) {
@@ -640,6 +665,24 @@ class ServerDatabase {
       }
     }
 
+    // Determine allowed target status from client updates
+    let allowedStatus: JobCardStatus = card.status;
+    if (updates.status) {
+      if (user.role === 'FIELD_ENGINEER') {
+        // Field engineer can toggle between Draft and In Progress, or remain in Changes Requested/In Progress
+        if (card.status === 'Draft' && (updates.status === 'Draft' || updates.status === 'In Progress')) {
+          allowedStatus = updates.status;
+        } else if (card.status === 'In Progress' && (updates.status === 'Draft' || updates.status === 'In Progress')) {
+          allowedStatus = updates.status;
+        } else if (card.status === 'Changes Requested' && (updates.status === 'Changes Requested' || updates.status === 'In Progress')) {
+          allowedStatus = updates.status;
+        }
+        // Engineers CANNOT set 'Approved', 'Rejected', or 'Pending Review' directly via update
+      } else if (user.role === 'ADMIN') {
+        allowedStatus = updates.status;
+      }
+    }
+
     // Preserve immutable server-authoritative fields
     const updatedCard: JobCard = {
       ...card,
@@ -648,6 +691,12 @@ class ServerDatabase {
       assignedEngineerId: card.assignedEngineerId, // Immutable engineer assignment
       assignedEngineerName: card.assignedEngineerName,
       managerId: card.managerId, // Immutable manager relationship
+      status: allowedStatus,
+      auditTrail: card.auditTrail, // Preserve audit trail
+      approvedBy: card.approvedBy,
+      approvedAt: card.approvedAt,
+      rejectionReason: card.rejectionReason,
+      revisionHistory: card.revisionHistory || [],
       updatedAt: new Date().toISOString(),
       lastSavedAt: 'Saved just now',
     };
@@ -675,15 +724,64 @@ class ServerDatabase {
     if (!card) return { status: 404, error: 'Job Card not found' };
 
     if (user.role !== 'FIELD_ENGINEER' && user.role !== 'ADMIN') {
-      return { status: 403, error: 'Forbidden: Only Field Engineers can submit Job Cards.' };
+      return { status: 403, error: 'Forbidden: Only Field Engineers can submit Job Cards for review.' };
     }
 
     if (user.role === 'FIELD_ENGINEER' && card.assignedEngineerId !== user.id) {
       return { status: 403, error: 'Forbidden: You can only submit your own Job Card.' };
     }
 
+    // Validate valid lifecycle transition
+    if (card.status !== 'Draft' && card.status !== 'In Progress' && card.status !== 'Changes Requested') {
+      return {
+        status: 400,
+        error: `Invalid transition: Cannot submit Job Card currently in "${card.status}" status.`,
+      };
+    }
+
+    // Validate required workflow steps
+    if (!card.customerName || !card.customerId) {
+      return { status: 400, error: 'Customer information is required before this Job Card can be submitted.' };
+    }
+
+    if (!card.equipmentName || !card.equipmentId) {
+      return { status: 400, error: 'Equipment information is required before this Job Card can be submitted.' };
+    }
+
+    if (!card.workPerformed || card.workPerformed.trim().length < 15) {
+      return {
+        status: 400,
+        error: 'Work performed technical summary (minimum 15 characters) is required before this Job Card can be submitted.',
+      };
+    }
+
+    const uninspected = (card.checklist || []).filter((c) => c.status === 'Pending');
+    if (uninspected.length > 0) {
+      return {
+        status: 400,
+        error: `${uninspected.length} diagnostic checklist item(s) remain uninspected. Complete all checklist items before submission.`,
+      };
+    }
+
+    const customerSignee = card.customerSignOff?.signeeName?.trim() || card.customerSignOff?.signedByName?.trim();
+    if (!card.customerSignOff || !card.customerSignOff.isConfirmed || !customerSignee) {
+      return {
+        status: 400,
+        error: 'Customer signature is required before this Job Card can be submitted.',
+      };
+    }
+
     const previousStatus = card.status;
     const isResubmission = previousStatus === 'Changes Requested';
+
+    // If resubmission, mark pending revision requests as addressed
+    if (isResubmission && card.revisionHistory && card.revisionHistory.length > 0) {
+      card.revisionHistory = card.revisionHistory.map((rev) =>
+        rev.status === 'Pending'
+          ? { ...rev, status: 'Addressed', addressedAt: new Date().toISOString() }
+          : rev
+      );
+    }
 
     card.status = 'Pending Review';
     card.submittedAt = new Date().toISOString();
@@ -694,9 +792,9 @@ class ServerDatabase {
       userId: user.id,
       userName: user.name,
       userRole: user.role,
-      action: isResubmission ? 'Resubmitted for Review' : 'Submitted for Review',
+      action: isResubmission ? 'Job Card Resubmitted' : 'Submitted for Review',
       details: isResubmission
-        ? 'Resubmitted after addressing manager review points'
+        ? 'Resubmitted after addressing manager revision notes'
         : 'Submitted technical findings and checklist for supervisory review',
       statusChange: { from: previousStatus, to: 'Pending Review' },
     });
@@ -740,6 +838,14 @@ class ServerDatabase {
       };
     }
 
+    // Lifecycle validation: card MUST be pending review
+    if (card.status !== 'Pending Review') {
+      return {
+        status: 400,
+        error: `Cannot approve: Job Card is in "${card.status}" status and is not pending review.`,
+      };
+    }
+
     const previousStatus = card.status;
     card.status = 'Approved';
     card.approvedBy = user.name;
@@ -754,7 +860,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       action: 'Job Card Approved',
-      details: `Approved and signed off by ${user.name}${notes ? `: ${notes}` : ''}`,
+      details: notes ? `Approved by ${user.name}: ${notes}` : `Approved by ${user.name} after supervisory validation`,
       statusChange: { from: previousStatus, to: 'Approved' },
     });
 
@@ -796,10 +902,41 @@ class ServerDatabase {
       };
     }
 
+    // Lifecycle validation: card MUST be pending review
+    if (card.status !== 'Pending Review') {
+      return {
+        status: 400,
+        error: `Cannot request changes: Job Card is in "${card.status}" status and is not pending review.`,
+      };
+    }
+
+    // Note/Reason is mandatory
+    if (!notes || !notes.trim()) {
+      return {
+        status: 400,
+        error: 'A specific reason/note is mandatory when requesting changes.',
+      };
+    }
+
     const previousStatus = card.status;
+    const cleanNotes = notes.trim();
+    const effectiveSections = sections && sections.length > 0 ? sections : ['General Work Order'];
+
+    // Record revision in history
+    const revision: RevisionRequest = {
+      id: `rev-${Date.now()}`,
+      requestedAt: new Date().toISOString(),
+      managerId: user.id,
+      managerName: user.name,
+      notes: cleanNotes,
+      sections: effectiveSections,
+      status: 'Pending',
+    };
+
     card.status = 'Changes Requested';
-    card.managerNotes = notes;
-    card.changesRequestedSections = sections;
+    card.managerNotes = cleanNotes;
+    card.changesRequestedSections = effectiveSections;
+    card.revisionHistory = [...(card.revisionHistory || []), revision];
     card.updatedAt = new Date().toISOString();
 
     card.auditTrail.push({
@@ -809,7 +946,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       action: 'Changes Requested',
-      details: `Revisions requested on [${sections.join(', ')}]: ${notes}`,
+      details: `Revisions requested on [${effectiveSections.join(', ')}]: ${cleanNotes}`,
       statusChange: { from: previousStatus, to: 'Changes Requested' },
     });
 
@@ -821,13 +958,13 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       targetId: jobCardId,
-      details: `Requested revisions on ${jobCardId}: ${notes}`,
+      details: `Requested revisions on ${jobCardId}: ${cleanNotes}`,
     });
 
     return { status: 200, card };
   }
 
-  // Reject Job Card (Strict Manager Authorization)
+  // Reject Job Card (Strict Manager Authorization - Terminal State)
   public rejectJobCard(
     user: User,
     jobCardId: string,
@@ -850,9 +987,27 @@ class ServerDatabase {
       };
     }
 
+    // Lifecycle validation: card MUST be pending review
+    if (card.status !== 'Pending Review') {
+      return {
+        status: 400,
+        error: `Cannot reject: Job Card is in "${card.status}" status and is not pending review.`,
+      };
+    }
+
+    // Reason is mandatory
+    if (!reason || !reason.trim()) {
+      return {
+        status: 400,
+        error: 'A specific rejection reason is mandatory when rejecting a Job Card.',
+      };
+    }
+
     const previousStatus = card.status;
+    const cleanReason = reason.trim();
+
     card.status = 'Rejected';
-    card.rejectionReason = reason;
+    card.rejectionReason = cleanReason;
     card.updatedAt = new Date().toISOString();
 
     card.auditTrail.push({
@@ -862,7 +1017,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       action: 'Job Card Rejected',
-      details: `Rejected by ${user.name}: ${reason}`,
+      details: `Rejected by ${user.name}: ${cleanReason}`,
       statusChange: { from: previousStatus, to: 'Rejected' },
     });
 
@@ -874,7 +1029,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       targetId: jobCardId,
-      details: `Rejected Job Card ${jobCardId}: ${reason}`,
+      details: `Rejected Job Card ${jobCardId}: ${cleanReason}`,
     });
 
     return { status: 200, card };
