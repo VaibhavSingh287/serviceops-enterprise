@@ -57,6 +57,11 @@ interface AppContextType {
   documentJobCard: JobCard | null;
   setDocumentJobCard: (jc: JobCard | null) => void;
 
+  // Mobile Navigation
+  isMobileNavOpen: boolean;
+  setIsMobileNavOpen: (open: boolean) => void;
+  toggleMobileNav: () => void;
+
   // Notifications
   notifications: Array<{ id: string; title: string; message: string; timestamp: string; read: boolean }>;
   markNotificationRead: (id: string) => void;
@@ -88,6 +93,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTab] = useState<string>('home');
   const [activeJobCardId, setActiveJobCardId] = useState<string | null>(null);
   const [documentJobCard, setDocumentJobCard] = useState<JobCard | null>(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const toggleMobileNav = useCallback(() => setIsMobileNavOpen((prev) => !prev), []);
 
   const [notifications, setNotifications] = useState([
     {
@@ -661,6 +668,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteJobCard,
         documentJobCard,
         setDocumentJobCard,
+        isMobileNavOpen,
+        setIsMobileNavOpen,
+        toggleMobileNav,
         notifications,
         markNotificationRead,
         toast,

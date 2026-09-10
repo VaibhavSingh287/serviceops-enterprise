@@ -564,7 +564,7 @@ export const InventoryManagementView: React.FC = () => {
       {/* Add New Inventory Part Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4 animate-in fade-in duration-150">
             <div>
               <h3 className="text-base font-bold text-slate-900">Add New Inventory SKU</h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -718,7 +718,7 @@ export const InventoryManagementView: React.FC = () => {
       {/* Edit Inventory Item Modal */}
       {editingItem && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4 animate-in fade-in duration-150">
             <div>
               <h3 className="text-base font-bold text-slate-900">
                 Edit Part: {editingItem.partNumber}
@@ -835,7 +835,7 @@ export const InventoryManagementView: React.FC = () => {
       {/* Adjust Stock Modal */}
       {adjustingItem && (
         <div id="modal-adjust-stock" className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4 animate-in fade-in duration-150">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Adjust Stock Quantity</h3>

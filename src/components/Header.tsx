@@ -9,6 +9,7 @@ import {
   Phone,
   UserCheck,
   Shield,
+  Menu,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -24,6 +25,7 @@ export const Header: React.FC = () => {
     openJobCard,
     notifications,
     markNotificationRead,
+    toggleMobileNav,
   } = useApp();
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -109,32 +111,42 @@ export const Header: React.FC = () => {
   return (
     <header
       id="app-header"
-      className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between z-30 shrink-0 select-none"
+      className="h-16 bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between z-30 shrink-0 select-none gap-2 sm:gap-4"
     >
       {/* Left: View title or Breadcrumb */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {/* Mobile Nav Hamburger Toggle */}
+        <button
+          onClick={toggleMobileNav}
+          className="p-2 -ml-1 text-slate-600 hover:text-slate-900 rounded-md lg:hidden cursor-pointer shrink-0"
+          aria-label="Open Navigation Menu"
+          title="Open Navigation Menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         {currentJobCard ? (
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs font-medium">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 sm:gap-2 text-xs font-medium min-w-0 truncate">
             <button
               onClick={() => setActiveJobCardId(null)}
-              className="text-slate-500 hover:text-slate-900 cursor-pointer transition-colors"
+              className="text-slate-500 hover:text-slate-900 cursor-pointer transition-colors shrink-0"
             >
               Job Cards
             </button>
-            <span className="text-slate-300">/</span>
-            <span className="font-mono font-semibold text-blue-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+            <span className="text-slate-300 shrink-0">/</span>
+            <span className="font-mono font-semibold text-blue-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 shrink-0">
               {currentJobCard.id}
             </span>
-            <span className="text-slate-400 hidden sm:inline">
+            <span className="text-slate-400 hidden sm:inline truncate">
               — {currentJobCard.customerName}
             </span>
           </nav>
         ) : (
-          <div className="flex items-center gap-3">
-            <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <h2 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight truncate">
               {getPageTitle()}
             </h2>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
+            <span className="text-[10px] font-mono font-semibold px-1.5 sm:px-2 py-0.5 rounded uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200 shrink-0 hidden md:inline-block">
               {currentUser.role.replace('_', ' ')}
             </span>
           </div>
@@ -142,34 +154,34 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Middle: Universal Search Bar & System Status */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 shrink-0">
         {/* System Online Status (subtle green dot) */}
-        <div className="hidden lg:flex items-center gap-2 text-xs font-medium text-slate-600">
+        <div className="hidden xl:flex items-center gap-2 text-xs font-medium text-slate-600">
           <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           <span>System Online</span>
         </div>
 
         {/* Universal Search Bar */}
-        <div className="relative w-56 md:w-64">
+        <div className="relative w-28 xs:w-44 sm:w-56 md:w-64">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               id="input-global-search"
               type="text"
-              placeholder="Search Job Cards..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setSearchOpen(true);
               }}
               onFocus={() => setSearchOpen(true)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 transition-colors"
+              className="w-full pl-7 sm:pl-8 pr-2 sm:pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 transition-colors"
             />
           </div>
 
           {/* Search Results Dropdown */}
           {searchOpen && searchQuery && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-md shadow-lg border border-slate-200 py-1.5 z-50 max-h-80 overflow-y-auto">
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-md shadow-lg border border-slate-200 py-1.5 z-50 max-h-80 overflow-y-auto w-64 sm:w-auto -right-16 sm:right-0">
               <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                 Results ({searchResults.length})
               </div>
@@ -217,7 +229,7 @@ export const Header: React.FC = () => {
           </button>
 
           {notifMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-80 bg-white rounded-md shadow-lg border border-slate-200 p-2 z-50">
+            <div className="absolute right-0 top-full mt-1 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-md shadow-lg border border-slate-200 p-2 z-50">
               <div className="px-2 py-1.5 font-semibold text-xs text-slate-800 border-b border-slate-100">
                 System Notifications
               </div>
@@ -243,12 +255,12 @@ export const Header: React.FC = () => {
           <button
             id="btn-header-user-menu"
             onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-md hover:bg-slate-50 border border-slate-200 cursor-pointer transition-colors"
+            className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 pr-2 sm:pr-2.5 py-1.5 rounded-md hover:bg-slate-50 border border-slate-200 cursor-pointer transition-colors"
           >
-            <div className="w-7 h-7 rounded bg-slate-800 text-white flex items-center justify-center font-bold text-xs">
+            <div className="w-7 h-7 rounded bg-slate-800 text-white flex items-center justify-center font-bold text-xs shrink-0">
               {currentUser.name.replace(/\s+/g, '').substring(0, 2).toUpperCase()}
             </div>
-            <div className="text-left hidden sm:block">
+            <div className="text-left hidden md:block">
               <div className="text-xs font-semibold text-slate-900 leading-tight">{currentUser.name}</div>
               <div className="text-[10px] text-slate-500 leading-tight">
                 {currentUser.role.replace('_', ' ')}
@@ -258,7 +270,7 @@ export const Header: React.FC = () => {
           </button>
 
           {userMenuOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-lg shadow-lg border border-slate-200 p-3 z-50">
+            <div className="absolute right-0 top-full mt-1.5 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-slate-200 p-3 z-50">
               {/* Authenticated Profile Details */}
               <div className="pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">

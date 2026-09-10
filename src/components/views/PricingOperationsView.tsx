@@ -132,44 +132,46 @@ export const PricingOperationsView: React.FC = () => {
           </div>
 
           <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                <tr>
-                  <th className="p-3">Part #</th>
-                  <th className="p-3">Description</th>
-                  <th className="p-3">Category</th>
-                  <th className="p-3 text-right">Standard Cost</th>
-                  <th className="p-3 text-right">Master Selling Price</th>
-                  <th className="p-3 text-right">Target Margin</th>
-                  <th className="p-3 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredInventory.map((item) => {
-                  const cost = item.standardCost || Math.round(item.unitPrice * 0.7);
-                  const marginPct = item.unitPrice > 0 ? Math.round(((item.unitPrice - cost) / item.unitPrice) * 100) : 0;
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-mono font-bold text-slate-900">{item.partNumber}</td>
-                      <td className="p-3 text-slate-800">{item.description}</td>
-                      <td className="p-3 text-slate-500">{item.category}</td>
-                      <td className="p-3 text-right font-mono text-slate-500">₹{cost.toLocaleString()}</td>
-                      <td className="p-3 text-right font-mono font-bold text-slate-900">
-                        ₹{item.unitPrice.toLocaleString()}
-                      </td>
-                      <td className="p-3 text-right font-mono font-semibold text-emerald-700">
-                        {marginPct}%
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          Active Master
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                  <tr>
+                    <th className="p-3 whitespace-nowrap">Part #</th>
+                    <th className="p-3 whitespace-nowrap">Description</th>
+                    <th className="p-3 whitespace-nowrap">Category</th>
+                    <th className="p-3 text-right whitespace-nowrap">Standard Cost</th>
+                    <th className="p-3 text-right whitespace-nowrap">Master Selling Price</th>
+                    <th className="p-3 text-right whitespace-nowrap">Target Margin</th>
+                    <th className="p-3 text-center whitespace-nowrap">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredInventory.map((item) => {
+                    const cost = item.standardCost || Math.round(item.unitPrice * 0.7);
+                    const marginPct = item.unitPrice > 0 ? Math.round(((item.unitPrice - cost) / item.unitPrice) * 100) : 0;
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-mono font-bold text-slate-900 whitespace-nowrap">{item.partNumber}</td>
+                        <td className="p-3 text-slate-800 whitespace-nowrap">{item.description}</td>
+                        <td className="p-3 text-slate-500 whitespace-nowrap">{item.category}</td>
+                        <td className="p-3 text-right font-mono text-slate-500 whitespace-nowrap">₹{cost.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                          ₹{item.unitPrice.toLocaleString()}
+                        </td>
+                        <td className="p-3 text-right font-mono font-semibold text-emerald-700 whitespace-nowrap">
+                          {marginPct}%
+                        </td>
+                        <td className="p-3 text-center whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            Active Master
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
