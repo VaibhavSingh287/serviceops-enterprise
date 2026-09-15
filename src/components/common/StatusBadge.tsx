@@ -65,6 +65,16 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
           Changes Requested
         </span>
       );
+    case 'Resubmitted':
+      return (
+        <span
+          id={`status-badge-resubmitted`}
+          className={`inline-flex items-center gap-1.5 rounded-md bg-sky-50 text-sky-800 border border-sky-300 ${sizeClasses[size]}`}
+        >
+          <Clock className="w-3.5 h-3.5 text-sky-600" />
+          Resubmitted
+        </span>
+      );
     case 'Pricing Review':
       return (
         <span

@@ -80,7 +80,7 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
   };
 
   const handleChangesConfirm = async () => {
-    if (!changesComments.trim()) return;
+    if (!changesComments.trim() || changesSections.length === 0) return;
     const success = await requestChanges(card.id, changesSections, changesComments.trim());
     setChangesModalOpen(false);
     if (success) {
@@ -89,8 +89,8 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
   };
 
   const handleRejectConfirm = async () => {
-    if (!rejectComments.trim()) return;
-    const success = await rejectJobCard(card.id, rejectReason, rejectComments.trim());
+    if (!rejectComments.trim() || !rejectReason.trim()) return;
+    const success = await rejectJobCard(card.id, rejectReason, rejectComments.trim(), rejectReason);
     setRejectModalOpen(false);
     if (success) {
       setActiveJobCardId(null);
@@ -127,7 +127,7 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
           </div>
 
           {/* Review Decision Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setDocumentJobCard(card)}
               className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
@@ -136,7 +136,7 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
               <span>Print Document</span>
             </button>
 
-            {card.status === 'Pending Review' || card.status === 'Submitted' ? (
+            {card.status === 'Pending Review' || card.status === 'Submitted' || card.status === 'Resubmitted' ? (
               <>
                 <button
                   onClick={() => {
@@ -297,38 +297,51 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                 </div>
 
                 {/* Formal Action Buttons */}
-                {card.status === 'Pending Review' || card.status === 'Submitted' ? (
-                  <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                    <button
-                      onClick={() => {
-                        setRejectComments(managerNotes);
-                        setRejectModalOpen(true);
-                      }}
-                      className="px-3.5 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
-                    >
-                      <XCircle className="w-4 h-4 text-rose-600" />
-                      <span>Reject Job Card</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setChangesComments(managerNotes);
-                        setChangesModalOpen(true);
-                      }}
-                      className="px-3.5 py-2 bg-white hover:bg-amber-50 border border-amber-300 text-amber-800 rounded text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
-                    >
-                      <AlertTriangle className="w-4 h-4 text-amber-600" />
-                      <span>Request Changes</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setApproveNotes(managerNotes);
-                        setApproveModalOpen(true);
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Approve Job Card</span>
-                    </button>
+                {card.status === 'Pending Review' || card.status === 'Submitted' || card.status === 'Resubmitted' ? (
+                  <div className="space-y-3 pt-2 border-t border-slate-100">
+                    {card.status === 'Resubmitted' && (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-start gap-2">
+                        <History className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Resubmitted after addressing manager feedback.</span>
+                          <p className="mt-0.5 text-blue-800">
+                            The engineer has updated this Job Card. Please verify all revised sections prior to approval.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                      <button
+                        onClick={() => {
+                          setRejectComments(managerNotes);
+                          setRejectModalOpen(true);
+                        }}
+                        className="px-3.5 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <XCircle className="w-4 h-4 text-rose-600" />
+                        <span>Reject Job Card</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setChangesComments(managerNotes);
+                          setChangesModalOpen(true);
+                        }}
+                        className="px-3.5 py-2 bg-white hover:bg-amber-50 border border-amber-300 text-amber-800 rounded text-xs font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <span>Request Changes</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setApproveNotes(managerNotes);
+                          setApproveModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Approve Job Card</span>
+                      </button>
+                    </div>
                   </div>
                 ) : card.status === 'Approved' || card.status === 'Completed' ? (
                   <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center justify-between font-medium">
@@ -339,12 +352,17 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                     <span className="font-mono text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">APPROVED</span>
                   </div>
                 ) : card.status === 'Rejected' ? (
-                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-900 flex items-center justify-between font-medium">
-                    <div className="flex items-center gap-2">
-                      <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                      <span>Job Card rejected (terminal state). Reason: "{card.rejectionReason || 'Supervisory rejection'}". Closed to resubmission.</span>
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-900 flex items-start justify-between font-medium gap-3">
+                    <div className="flex items-start gap-2">
+                      <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span>Job Card rejected (terminal state). Closed to resubmission.</span>
+                        <div className="mt-1 text-rose-800 text-[11px] bg-white/70 p-2 rounded border border-rose-200 font-mono">
+                          {card.rejectionCode ? `[${card.rejectionCode}] ` : ''}{card.rejectionReason || 'Supervisory rejection'}
+                        </div>
+                      </div>
                     </div>
-                    <span className="font-mono text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold">REJECTED</span>
+                    <span className="font-mono text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold shrink-0">REJECTED</span>
                   </div>
                 ) : card.status === 'Changes Requested' ? (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-center justify-between font-medium">
@@ -356,7 +374,7 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                   </div>
                 ) : (
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 flex items-center justify-between font-medium">
-                    <span>Card is in {card.status} status. Only cards in "Pending Review" can be approved or rejected.</span>
+                    <span>Card is in {card.status} status. Only cards in "Pending Review" or "Resubmitted" can be approved or rejected.</span>
                     <span className="font-mono text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">{card.status.toUpperCase()}</span>
                   </div>
                 )}
@@ -524,41 +542,146 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
               )}
             </div>
 
-            {/* Revision History Audit Trail */}
-            {card.revisionHistory && card.revisionHistory.length > 0 && (
+            {/* Formal Revision History Audit Trail */}
+            {((card.revisions && card.revisions.length > 0) || (card.revisionHistory && card.revisionHistory.length > 0)) && (
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                  <History className="w-4 h-4 text-orange-600" />
-                  <h3 className="text-sm font-bold text-slate-900">Revision Audit Log ({card.revisionHistory.length} Cycles)</h3>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-orange-600" />
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Formal Revision History ({card.revisions ? card.revisions.length : card.revisionHistory?.length} Records)
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-semibold">
+                    Server Immutable Log
+                  </span>
                 </div>
 
-                <div className="space-y-3">
-                  {card.revisionHistory.map((rev) => (
-                    <div key={rev.id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">Revision requested by {rev.requestedByName}</span>
-                        <span className="text-slate-400 font-mono text-[11px]">
-                          {new Date(rev.requestedAt).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {rev.sections.map((s) => (
-                          <span key={s} className="px-2 py-0.5 rounded bg-orange-100 text-orange-800 text-[10px] font-bold">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-slate-700 bg-white p-2.5 rounded border border-slate-200">
-                        {rev.comments}
-                      </p>
-                      {rev.resubmittedAt && (
-                        <div className="text-emerald-700 text-[11px] font-medium pt-1">
-                          ✓ Resubmitted on {new Date(rev.resubmittedAt).toLocaleString()}: "{rev.resubmittedNotes || 'Addressed revisions'}"
+                {card.revisions && card.revisions.length > 0 ? (
+                  <div className="space-y-3">
+                    {card.revisions.map((rev) => {
+                      const isRejected = rev.action === 'Rejected';
+                      const isApproved = rev.action === 'Approved';
+                      const isResubmitted = rev.action === 'Resubmitted';
+                      const isChangesRequested = rev.action === 'Changes Requested';
+
+                      return (
+                        <div
+                          key={rev.id}
+                          className={`p-3.5 rounded-lg border text-xs space-y-2 ${
+                            isRejected
+                              ? 'bg-rose-50/50 border-rose-200'
+                              : isApproved
+                              ? 'bg-emerald-50/40 border-emerald-200'
+                              : isResubmitted
+                              ? 'bg-blue-50/40 border-blue-200'
+                              : isChangesRequested
+                              ? 'bg-amber-50/40 border-amber-200'
+                              : 'bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-800">
+                                Rev #{rev.revisionNumber}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  isRejected
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : isApproved
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : isResubmitted
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : isChangesRequested
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-200 text-slate-800'
+                                }`}
+                              >
+                                {rev.action}
+                              </span>
+                              <span className="text-slate-600 text-[11px]">
+                                by <strong>{rev.actorName}</strong> ({rev.actorRole})
+                              </span>
+                            </div>
+                            <span className="text-slate-400 font-mono text-[11px]">
+                              {new Date(rev.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5">
+                            <span>Status:</span>
+                            <span className="font-semibold text-slate-700">{rev.previousState}</span>
+                            <span>→</span>
+                            <span className="font-bold text-slate-900">{rev.newState}</span>
+                          </div>
+
+                          {rev.affectedSections && rev.affectedSections.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                              <span className="text-[10px] text-slate-500 font-medium">Sections:</span>
+                              {rev.affectedSections.map((sec) => (
+                                <span
+                                  key={sec}
+                                  className="px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 text-[10px] font-semibold"
+                                >
+                                  {sec}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {rev.managerFeedback && (
+                            <div className="text-slate-700 bg-white p-2.5 rounded border border-slate-200 text-[11px]">
+                              <span className="font-bold text-amber-800">Manager Instructions: </span>
+                              {rev.managerFeedback}
+                            </div>
+                          )}
+
+                          {rev.rejectionJustification && (
+                            <div className="text-rose-900 bg-white p-2.5 rounded border border-rose-200 text-[11px]">
+                              <span className="font-bold">Rejection Justification [{rev.rejectionCode || 'Standard'}]: </span>
+                              {rev.rejectionJustification}
+                            </div>
+                          )}
+
+                          {rev.notes && !rev.managerFeedback && !rev.rejectionJustification && (
+                            <p className="text-slate-700 bg-white p-2.5 rounded border border-slate-200 text-[11px]">
+                              {rev.notes}
+                            </p>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {card.revisionHistory?.map((rev) => (
+                      <div key={rev.id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">Revision requested by {rev.requestedByName || rev.managerName}</span>
+                          <span className="text-slate-400 font-mono text-[11px]">
+                            {new Date(rev.requestedAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {rev.sections.map((s) => (
+                            <span key={s} className="px-2 py-0.5 rounded bg-orange-100 text-orange-800 text-[10px] font-bold">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-slate-700 bg-white p-2.5 rounded border border-slate-200">
+                          {rev.comments || rev.notes}
+                        </p>
+                        {rev.resubmittedAt && (
+                          <div className="text-emerald-700 text-[11px] font-medium pt-1">
+                            ✓ Resubmitted on {new Date(rev.resubmittedAt).toLocaleString()}: "{rev.resubmittedNotes || 'Addressed revisions'}"
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -919,6 +1042,9 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
                   )
                 )}
               </div>
+              {changesSections.length === 0 && (
+                <p className="text-[11px] text-rose-600 font-medium">Please select at least one affected section.</p>
+              )}
             </div>
 
             <div className="space-y-1.5 text-left">
@@ -941,7 +1067,7 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
               </button>
               <button
                 onClick={handleChangesConfirm}
-                disabled={!changesComments.trim()}
+                disabled={!changesComments.trim() || changesSections.length === 0}
                 className="px-5 py-2 bg-orange-600 hover:bg-orange-500 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold cursor-pointer shadow-xs"
               >
                 Send Revision Request
@@ -1001,7 +1127,7 @@ export const ManagerJobCardReview: React.FC<{ jobCardId: string }> = ({ jobCardI
               </button>
               <button
                 onClick={handleRejectConfirm}
-                disabled={!rejectComments.trim()}
+                disabled={!rejectComments.trim() || !rejectReason.trim()}
                 className="px-5 py-2 bg-rose-600 hover:bg-rose-500 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold cursor-pointer shadow-xs"
               >
                 Reject Record

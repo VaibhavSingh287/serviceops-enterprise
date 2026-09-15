@@ -19,6 +19,7 @@ export type JobCardStatus =
   | 'Submitted'
   | 'Pending Review'
   | 'Changes Requested'
+  | 'Resubmitted'
   | 'Pricing Review'
   | 'Approved'
   | 'Completed'
@@ -118,6 +119,24 @@ export interface RevisionRequest {
   resubmittedNotes?: string;
 }
 
+export interface JobCardRevision {
+  id: string;
+  revisionNumber: number; // 1, 2, 3...
+  jobCardId: string;
+  timestamp: string;
+  actorId: string; // actor/user enterprise or internal ID (e.g. 'ENG-002', 'MGR-001')
+  actorName: string;
+  actorRole: UserRole;
+  action: 'Submitted' | 'Changes Requested' | 'Resubmitted' | 'Approved' | 'Rejected' | string;
+  previousState: JobCardStatus;
+  newState: JobCardStatus;
+  affectedSections?: string[];
+  managerFeedback?: string;
+  rejectionJustification?: string;
+  rejectionCode?: string;
+  notes?: string;
+}
+
 export interface AuditEvent {
   id: string;
   timestamp: string;
@@ -204,7 +223,9 @@ export interface JobCard {
   managerNotes?: string;
   changesRequestedSections?: string[];
   revisionHistory?: RevisionRequest[];
+  revisions?: JobCardRevision[];
   rejectionReason?: string;
+  rejectionCode?: string;
   approvedBy?: string;
   approvedAt?: string;
   

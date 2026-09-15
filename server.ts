@@ -228,7 +228,8 @@ app.put('/api/jobcards/:id', authenticateToken, (req: any, res) => {
 });
 
 app.post('/api/jobcards/:id/submit', authenticateToken, (req: any, res) => {
-  const result = db.submitJobCard(req.user, req.params.id);
+  const { notes } = req.body || {};
+  const result = db.submitJobCard(req.user, req.params.id, notes);
   if (result.status !== 200) {
     return res.status(result.status).json({ error: result.error });
   }
@@ -254,8 +255,10 @@ app.post('/api/jobcards/:id/request-changes', authenticateToken, (req: any, res)
 });
 
 app.post('/api/jobcards/:id/reject', authenticateToken, (req: any, res) => {
-  const { reason, justification } = req.body;
-  const result = db.rejectJobCard(req.user, req.params.id, reason || justification || '');
+  const { reason, justification, code, rejectionCode } = req.body || {};
+  const justificationReason = reason || justification || '';
+  const finalCode = rejectionCode || code || 'Unmet Technical Standards';
+  const result = db.rejectJobCard(req.user, req.params.id, justificationReason, finalCode);
   if (result.status !== 200) {
     return res.status(result.status).json({ error: result.error });
   }

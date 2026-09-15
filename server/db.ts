@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { User, JobCard, Customer, Equipment, InventoryItem, AuditLogEntry, StockMovement, RevisionRequest, JobCardStatus } from '../src/types';
+import { User, JobCard, Customer, Equipment, InventoryItem, AuditLogEntry, StockMovement, RevisionRequest, JobCardRevision, JobCardStatus } from '../src/types';
 import {
   SYSTEM_USERS,
   INITIAL_CUSTOMERS,
@@ -636,10 +636,10 @@ class ServerDatabase {
       };
     }
 
-    if (card.status === 'Pending Review') {
+    if (card.status === 'Pending Review' || card.status === 'Resubmitted') {
       return {
         status: 403,
-        error: 'Forbidden: Job Card is locked while under supervisory review.',
+        error: `Forbidden: Job Card is locked while awaiting supervisory review (${card.status}).`,
       };
     }
 
@@ -696,7 +696,9 @@ class ServerDatabase {
       approvedBy: card.approvedBy,
       approvedAt: card.approvedAt,
       rejectionReason: card.rejectionReason,
+      rejectionCode: card.rejectionCode,
       revisionHistory: card.revisionHistory || [],
+      revisions: card.revisions || [],
       updatedAt: new Date().toISOString(),
       lastSavedAt: 'Saved just now',
     };
@@ -715,10 +717,51 @@ class ServerDatabase {
     return { status: 200, card: updatedCard };
   }
 
+  // Record a formal immutable revision entry
+  private recordRevision(
+    card: JobCard,
+    user: User,
+    action: 'Submitted' | 'Changes Requested' | 'Resubmitted' | 'Approved' | 'Rejected' | string,
+    previousState: JobCardStatus,
+    newState: JobCardStatus,
+    options: {
+      affectedSections?: string[];
+      managerFeedback?: string;
+      rejectionJustification?: string;
+      rejectionCode?: string;
+      notes?: string;
+    } = {}
+  ): JobCardRevision {
+    if (!card.revisions) {
+      card.revisions = [];
+    }
+    const revisionNumber = card.revisions.length + 1;
+    const revision: JobCardRevision = {
+      id: `rev-${Date.now()}-${revisionNumber}`,
+      revisionNumber,
+      jobCardId: card.id,
+      timestamp: new Date().toISOString(),
+      actorId: user.enterpriseId || user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      action,
+      previousState,
+      newState,
+      affectedSections: options.affectedSections,
+      managerFeedback: options.managerFeedback,
+      rejectionJustification: options.rejectionJustification,
+      rejectionCode: options.rejectionCode,
+      notes: options.notes,
+    };
+    card.revisions.push(revision);
+    return revision;
+  }
+
   // Submit Job Card for Review (Field Engineer Only)
   public submitJobCard(
     user: User,
-    jobCardId: string
+    jobCardId: string,
+    notes?: string
   ): { status: number; card?: JobCard; error?: string } {
     const card = this.jobCards.get(jobCardId);
     if (!card) return { status: 404, error: 'Job Card not found' };
@@ -773,19 +816,43 @@ class ServerDatabase {
 
     const previousStatus = card.status;
     const isResubmission = previousStatus === 'Changes Requested';
+    const targetStatus: JobCardStatus = isResubmission ? 'Resubmitted' : 'Pending Review';
 
     // If resubmission, mark pending revision requests as addressed
     if (isResubmission && card.revisionHistory && card.revisionHistory.length > 0) {
       card.revisionHistory = card.revisionHistory.map((rev) =>
         rev.status === 'Pending'
-          ? { ...rev, status: 'Addressed', addressedAt: new Date().toISOString() }
+          ? {
+              ...rev,
+              status: 'Addressed',
+              addressedAt: new Date().toISOString(),
+              resubmittedAt: new Date().toISOString(),
+              resubmittedNotes: notes || 'Addressed revisions requested by manager',
+            }
           : rev
       );
     }
 
-    card.status = 'Pending Review';
+    card.status = targetStatus;
     card.submittedAt = new Date().toISOString();
     card.updatedAt = new Date().toISOString();
+
+    const affectedSections = isResubmission ? card.changesRequestedSections : undefined;
+    const revisionNotes = notes?.trim() || (isResubmission ? 'Resubmitted after addressing manager revisions' : 'Submitted technical findings and checklist for supervisory review');
+
+    // Record formal Revision History
+    this.recordRevision(
+      card,
+      user,
+      isResubmission ? 'Resubmitted' : 'Submitted',
+      previousStatus,
+      targetStatus,
+      {
+        affectedSections,
+        notes: revisionNotes,
+      }
+    );
+
     card.auditTrail.push({
       id: `aud-${Date.now()}`,
       timestamp: new Date().toISOString(),
@@ -793,10 +860,8 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       action: isResubmission ? 'Job Card Resubmitted' : 'Submitted for Review',
-      details: isResubmission
-        ? 'Resubmitted after addressing manager revision notes'
-        : 'Submitted technical findings and checklist for supervisory review',
-      statusChange: { from: previousStatus, to: 'Pending Review' },
+      details: revisionNotes,
+      statusChange: { from: previousStatus, to: targetStatus },
     });
 
     this.jobCards.set(jobCardId, card);
@@ -807,7 +872,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       targetId: jobCardId,
-      details: `${isResubmission ? 'Resubmitted' : 'Submitted'} Job Card ${jobCardId} to Manager ${card.managerId}`,
+      details: `${isResubmission ? 'Resubmitted' : 'Submitted'} Job Card ${jobCardId} to Manager ${card.managerId}: ${revisionNotes}`,
     });
 
     return { status: 200, card };
@@ -838,20 +903,35 @@ class ServerDatabase {
       };
     }
 
-    // Lifecycle validation: card MUST be pending review
-    if (card.status !== 'Pending Review') {
+    // Lifecycle validation: card MUST be pending review or resubmitted
+    if (card.status !== 'Pending Review' && card.status !== 'Resubmitted') {
       return {
         status: 400,
-        error: `Cannot approve: Job Card is in "${card.status}" status and is not pending review.`,
+        error: `Cannot approve: Job Card is in "${card.status}" status and is not pending supervisory review.`,
       };
     }
 
     const previousStatus = card.status;
+    const approvalNotes = notes?.trim() || 'Manager verified and authorized sign-off';
+
     card.status = 'Approved';
     card.approvedBy = user.name;
     card.approvedAt = new Date().toISOString();
-    card.managerNotes = notes || card.managerNotes;
+    card.managerNotes = notes ? notes.trim() : card.managerNotes;
     card.updatedAt = new Date().toISOString();
+
+    // Record formal Revision History
+    this.recordRevision(
+      card,
+      user,
+      'Approved',
+      previousStatus,
+      'Approved',
+      {
+        managerFeedback: approvalNotes,
+        notes: approvalNotes,
+      }
+    );
 
     card.auditTrail.push({
       id: `aud-${Date.now()}`,
@@ -860,7 +940,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       action: 'Job Card Approved',
-      details: notes ? `Approved by ${user.name}: ${notes}` : `Approved by ${user.name} after supervisory validation`,
+      details: `Approved by ${user.name}: ${approvalNotes}`,
       statusChange: { from: previousStatus, to: 'Approved' },
     });
 
@@ -872,7 +952,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       targetId: jobCardId,
-      details: `Approved Job Card ${jobCardId}`,
+      details: `Approved Job Card ${jobCardId}: ${approvalNotes}`,
     });
 
     return { status: 200, card };
@@ -902,27 +982,35 @@ class ServerDatabase {
       };
     }
 
-    // Lifecycle validation: card MUST be pending review
-    if (card.status !== 'Pending Review') {
+    // Lifecycle validation: card MUST be pending review or resubmitted
+    if (card.status !== 'Pending Review' && card.status !== 'Resubmitted') {
       return {
         status: 400,
-        error: `Cannot request changes: Job Card is in "${card.status}" status and is not pending review.`,
+        error: `Cannot request changes: Job Card is in "${card.status}" status and is not pending supervisory review.`,
       };
     }
 
-    // Note/Reason is mandatory
+    // Affected sections are mandatory
+    if (!sections || !Array.isArray(sections) || sections.length === 0) {
+      return {
+        status: 400,
+        error: 'At least one affected section is required when requesting changes.',
+      };
+    }
+
+    // Feedback notes are mandatory
     if (!notes || !notes.trim()) {
       return {
         status: 400,
-        error: 'A specific reason/note is mandatory when requesting changes.',
+        error: 'Specific feedback and instructions are mandatory when requesting changes.',
       };
     }
 
     const previousStatus = card.status;
     const cleanNotes = notes.trim();
-    const effectiveSections = sections && sections.length > 0 ? sections : ['General Work Order'];
+    const effectiveSections = sections;
 
-    // Record revision in history
+    // Record revision in history (legacy format)
     const revision: RevisionRequest = {
       id: `rev-${Date.now()}`,
       requestedAt: new Date().toISOString(),
@@ -938,6 +1026,20 @@ class ServerDatabase {
     card.changesRequestedSections = effectiveSections;
     card.revisionHistory = [...(card.revisionHistory || []), revision];
     card.updatedAt = new Date().toISOString();
+
+    // Record formal Revision History
+    this.recordRevision(
+      card,
+      user,
+      'Changes Requested',
+      previousStatus,
+      'Changes Requested',
+      {
+        affectedSections: effectiveSections,
+        managerFeedback: cleanNotes,
+        notes: cleanNotes,
+      }
+    );
 
     card.auditTrail.push({
       id: `aud-${Date.now()}`,
@@ -958,7 +1060,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       targetId: jobCardId,
-      details: `Requested revisions on ${jobCardId}: ${cleanNotes}`,
+      details: `Requested revisions on ${jobCardId} [${effectiveSections.join(', ')}]: ${cleanNotes}`,
     });
 
     return { status: 200, card };
@@ -968,7 +1070,8 @@ class ServerDatabase {
   public rejectJobCard(
     user: User,
     jobCardId: string,
-    reason: string
+    reason: string,
+    justificationCode: string = 'General Justification'
   ): { status: number; card?: JobCard; error?: string } {
     const card = this.jobCards.get(jobCardId);
     if (!card) return { status: 404, error: 'Job Card not found' };
@@ -987,11 +1090,11 @@ class ServerDatabase {
       };
     }
 
-    // Lifecycle validation: card MUST be pending review
-    if (card.status !== 'Pending Review') {
+    // Lifecycle validation: card MUST be pending review or resubmitted
+    if (card.status !== 'Pending Review' && card.status !== 'Resubmitted') {
       return {
         status: 400,
-        error: `Cannot reject: Job Card is in "${card.status}" status and is not pending review.`,
+        error: `Cannot reject: Job Card is in "${card.status}" status and is not pending supervisory review.`,
       };
     }
 
@@ -999,16 +1102,40 @@ class ServerDatabase {
     if (!reason || !reason.trim()) {
       return {
         status: 400,
-        error: 'A specific rejection reason is mandatory when rejecting a Job Card.',
+        error: 'A specific rejection explanation is mandatory when rejecting a Job Card.',
+      };
+    }
+
+    // Justification code is mandatory
+    if (!justificationCode || !justificationCode.trim()) {
+      return {
+        status: 400,
+        error: 'A justification category code is mandatory when rejecting a Job Card.',
       };
     }
 
     const previousStatus = card.status;
     const cleanReason = reason.trim();
+    const cleanCode = justificationCode.trim();
 
     card.status = 'Rejected';
     card.rejectionReason = cleanReason;
+    card.rejectionCode = cleanCode;
     card.updatedAt = new Date().toISOString();
+
+    // Record formal Revision History
+    this.recordRevision(
+      card,
+      user,
+      'Rejected',
+      previousStatus,
+      'Rejected',
+      {
+        rejectionCode: cleanCode,
+        rejectionJustification: cleanReason,
+        notes: `[${cleanCode}] ${cleanReason}`,
+      }
+    );
 
     card.auditTrail.push({
       id: `aud-${Date.now()}`,
@@ -1017,7 +1144,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       action: 'Job Card Rejected',
-      details: `Rejected by ${user.name}: ${cleanReason}`,
+      details: `Rejected by ${user.name} [${cleanCode}]: ${cleanReason}`,
       statusChange: { from: previousStatus, to: 'Rejected' },
     });
 
@@ -1029,7 +1156,7 @@ class ServerDatabase {
       userName: user.name,
       userRole: user.role,
       targetId: jobCardId,
-      details: `Rejected Job Card ${jobCardId}: ${cleanReason}`,
+      details: `Rejected Job Card ${jobCardId} [${cleanCode}]: ${cleanReason}`,
     });
 
     return { status: 200, card };

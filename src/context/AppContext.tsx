@@ -47,10 +47,10 @@ interface AppContextType {
   openJobCard: (id: string) => void;
   createNewJobCard: (customerId?: string, equipmentId?: string) => Promise<JobCard | null>;
   saveJobCardDraft: (jobCard: JobCard) => Promise<void>;
-  submitJobCard: (id: string) => Promise<boolean>;
+  submitJobCard: (id: string, notes?: string) => Promise<boolean>;
   approveJobCard: (id: string, notes?: string) => Promise<boolean>;
   requestChanges: (id: string, sections: string[], comments: string) => Promise<boolean>;
-  rejectJobCard: (id: string, reason: string, comments: string) => Promise<boolean>;
+  rejectJobCard: (id: string, reason: string, comments: string, code?: string) => Promise<boolean>;
   deleteJobCard: (id: string) => void;
 
   // Document Generator Modal State
@@ -505,7 +505,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Submit Job Card for Review (Field Engineer)
-  const submitJobCard = async (id: string): Promise<boolean> => {
+  const submitJobCard = async (id: string, notes?: string): Promise<boolean> => {
     if (!token) return false;
 
     try {
@@ -515,6 +515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ notes }),
       });
 
       if (!res.ok) {
@@ -525,7 +526,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const updatedCard: JobCard = await res.json();
       setJobCards((prev) => prev.map((jc) => (jc.id === id ? updatedCard : jc)));
-      showToast(`Job Card ${id} submitted for Manager review!`, 'success');
+      const isResubmission = updatedCard.status === 'Resubmitted';
+      showToast(isResubmission ? `Job Card ${id} resubmitted for Manager review!` : `Job Card ${id} submitted for Manager review!`, 'success');
       return true;
     } catch (err) {
       console.error('Error submitting job card:', err);
@@ -597,7 +599,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Reject Job Card
-  const rejectJobCard = async (id: string, reason: string, comments: string): Promise<boolean> => {
+  const rejectJobCard = async (id: string, reason: string, comments: string, code?: string): Promise<boolean> => {
     if (!token) return false;
 
     try {
@@ -607,7 +609,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ reason: `${reason}${comments ? `: ${comments}` : ''}` }),
+        body: JSON.stringify({
+          reason: comments ? `${reason} - ${comments}` : reason,
+          rejectionCode: code || reason,
+        }),
       });
 
       if (!res.ok) {

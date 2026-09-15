@@ -50,6 +50,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   const [aiSuggestions, setAiSuggestions] = useState<any>(null);
   const [activeIssueChecklistId, setActiveIssueChecklistId] = useState<string | null>(null);
   const [submitConfirmOpen, setSubmitConfirmOpen] = useState<boolean>(false);
+  const [resubmissionNotes, setResubmissionNotes] = useState<string>('');
 
   // Initialize form state
   useEffect(() => {
@@ -97,6 +98,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   const isReadOnly =
     formData.status === 'Approved' ||
     formData.status === 'Pending Review' ||
+    formData.status === 'Resubmitted' ||
     formData.status === 'Rejected' ||
     formData.status === 'Completed';
 
@@ -358,6 +360,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   const [selectedPhotoCategory, setSelectedPhotoCategory] = useState<string>('Before Service');
 
   const handleAddAttachmentPhoto = (category: string) => {
+    if (isReadOnly) return;
     const sampleEquipmentPhotos = [
       'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
       'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80',
@@ -382,6 +385,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -407,6 +411,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   };
 
   const handleRemoveAttachment = (attId: string) => {
+    if (isReadOnly) return;
     const updated = {
       ...formData,
       attachments: formData.attachments.filter((a) => a.id !== attId),
@@ -418,7 +423,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   // Final Submit
   const handleConfirmSubmit = async () => {
     setSubmitConfirmOpen(false);
-    const success = await submitJobCard(formData.id);
+    const success = await submitJobCard(formData.id, resubmissionNotes.trim() || undefined);
     if (success) {
       setActiveJobCardId(null);
     }
@@ -567,13 +572,28 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
           </div>
         )}
 
+        {formData.status === 'Resubmitted' && (
+          <div className="bg-sky-50 border-t border-sky-200 px-6 py-2.5 text-xs text-sky-900 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-sky-600 shrink-0" />
+              <div>
+                <strong>Resubmitted for Review: </strong>
+                <span>Revised job card submitted to manager for supervisory approval. Editing is locked.</span>
+              </div>
+            </div>
+            <span className="font-mono font-bold text-[10px] bg-sky-100 text-sky-800 px-2 py-0.5 rounded">AWAITING APPROVAL</span>
+          </div>
+        )}
+
         {formData.status === 'Rejected' && (
           <div className="bg-rose-50 border-t border-rose-200 px-6 py-2.5 text-xs text-rose-900 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <div>
                 <strong>Job Card Rejected (Terminal Status): </strong>
-                <span>Reason: "{formData.rejectionReason || 'Supervisory rejection'}". Modifications and resubmissions are closed.</span>
+                <span>
+                  Reason: {formData.rejectionCode ? `[${formData.rejectionCode}] ` : ''}"{formData.rejectionReason || 'Supervisory rejection'}". Modifications and resubmissions are closed.
+                </span>
               </div>
             </div>
             <span className="font-mono font-bold text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded">TERMINAL</span>
@@ -643,7 +663,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
       <div className="max-w-4xl mx-auto p-6 mt-4">
         {/* STEP 1: CUSTOMER & EQUIPMENT */}
         {activeStep === 1 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6">
+          <fieldset disabled={isReadOnly} className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6 block disabled:opacity-95">
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-blue-600" />
@@ -795,12 +815,12 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 </div>
               </div>
             </div>
-          </div>
+          </fieldset>
         )}
 
         {/* STEP 2: SERVICE DETAILS */}
         {activeStep === 2 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6">
+          <fieldset disabled={isReadOnly} className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6 block disabled:opacity-95">
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-blue-600" />
@@ -884,12 +904,12 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:bg-white"
               />
             </div>
-          </div>
+          </fieldset>
         )}
 
         {/* STEP 3: INSPECTION CHECKLIST */}
         {activeStep === 3 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6">
+          <fieldset disabled={isReadOnly} className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6 block disabled:opacity-95">
             <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -1037,12 +1057,12 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 );
               })}
             </div>
-          </div>
+          </fieldset>
         )}
 
         {/* STEP 4: PARTS & MATERIALS */}
         {activeStep === 4 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6">
+          <fieldset disabled={isReadOnly} className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6 block disabled:opacity-95">
             <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -1195,12 +1215,12 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 </div>
               )}
             </div>
-          </div>
+          </fieldset>
         )}
 
         {/* STEP 5: WORK PERFORMED */}
         {activeStep === 5 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6">
+          <fieldset disabled={isReadOnly} className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6 block disabled:opacity-95">
             <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -1260,12 +1280,12 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:bg-white"
               />
             </div>
-          </div>
+          </fieldset>
         )}
 
         {/* STEP 6: ATTACHMENTS & EVIDENCE */}
         {activeStep === 6 && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6">
+          <fieldset disabled={isReadOnly} className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-6 block disabled:opacity-95">
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Camera className="w-5 h-5 text-blue-600" />
@@ -1366,13 +1386,13 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 </div>
               )}
             </div>
-          </div>
+          </fieldset>
         )}
 
         {/* STEP 7: CUSTOMER SIGN-OFF */}
         {activeStep === 7 && (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-5">
+            <fieldset disabled={isReadOnly} className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-5 block disabled:opacity-95">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
@@ -1613,7 +1633,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                   </span>
                 </label>
               </div>
-            </div>
+            </fieldset>
 
             {/* Stepper Navigation */}
             <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
@@ -1805,28 +1825,42 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
             <div className="flex items-center justify-between bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
               <div>
                 <div className="text-sm font-bold text-slate-900">
-                  {formData.status === 'Changes Requested' ? 'Ready to Resubmit to Manager?' : 'Ready to route to Manager?'}
+                  {isReadOnly
+                    ? `Job Card Locked (${formData.status})`
+                    : formData.status === 'Changes Requested'
+                    ? 'Ready to Resubmit to Manager?'
+                    : 'Ready to route to Manager?'}
                 </div>
                 <div className="text-xs text-slate-500">
-                  Submitting will lock engineer inputs and queue this card for supervisory review.
+                  {isReadOnly
+                    ? `This Job Card is in "${formData.status}" status and is read-only for field engineers.`
+                    : 'Submitting will lock engineer inputs and queue this card for supervisory review.'}
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <button
-                  onClick={handleManualSave}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition-colors"
-                >
-                  Save as Draft
-                </button>
-                <button
-                  onClick={() => setSubmitConfirmOpen(true)}
-                  disabled={validationErrors.length > 0}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm transition-colors"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>{formData.status === 'Changes Requested' ? 'Resubmit for Review' : 'Submit for Review'}</span>
-                </button>
+                {!isReadOnly ? (
+                  <>
+                    <button
+                      onClick={handleManualSave}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      Save as Draft
+                    </button>
+                    <button
+                      onClick={() => setSubmitConfirmOpen(true)}
+                      disabled={validationErrors.length > 0}
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>{formData.status === 'Changes Requested' ? 'Resubmit for Review' : 'Submit for Review'}</span>
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs px-3.5 py-2 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                    Read Only ({formData.status})
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1842,9 +1876,13 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
             </div>
 
             <div className="text-center">
-              <h3 className="text-base font-bold text-slate-900">Confirm Submission to Manager</h3>
+              <h3 className="text-base font-bold text-slate-900">
+                {formData.status === 'Changes Requested' ? 'Confirm Resubmission to Manager' : 'Confirm Submission to Manager'}
+              </h3>
               <p className="text-xs text-slate-600 mt-1">
-                Are you ready to submit Job Card <strong>{formData.id}</strong>? The status will update to <strong>Pending Review</strong> and deduct inventory stocks accordingly.
+                {formData.status === 'Changes Requested'
+                  ? `You are resubmitting Job Card ${formData.id} after addressing requested changes. The card will update to Resubmitted for supervisory review.`
+                  : `Are you ready to submit Job Card ${formData.id}? The status will update to Pending Review and inventory stocks will be allocated.`}
               </p>
             </div>
 
@@ -1854,6 +1892,21 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
               <div><strong>Parts Used:</strong> {formData.parts.length} items (₹{formData.pricing.parts.toLocaleString()})</div>
               <div><strong>Total Estimated:</strong> ₹{formData.pricing.total.toLocaleString()}</div>
             </div>
+
+            {formData.status === 'Changes Requested' && (
+              <div className="space-y-1 text-left">
+                <label className="text-[11px] font-bold text-slate-700">
+                  Resubmission Notes / Action Taken
+                </label>
+                <textarea
+                  rows={2}
+                  value={resubmissionNotes}
+                  onChange={(e) => setResubmissionNotes(e.target.value)}
+                  placeholder="Summarize the adjustments made (e.g. uploaded after-service photos, updated pressure log)..."
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-blue-500 focus:bg-white"
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
@@ -1866,7 +1919,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 onClick={handleConfirmSubmit}
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold cursor-pointer"
               >
-                Confirm & Submit
+                {formData.status === 'Changes Requested' ? 'Confirm & Resubmit' : 'Confirm & Submit'}
               </button>
             </div>
           </div>

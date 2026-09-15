@@ -26,11 +26,11 @@ export const ManagerDashboard: React.FC = () => {
 
   // Scoped Job Cards for this manager
   const pendingApprovals = jobCards.filter(
-    (jc) => jc.status === 'Pending Review' || jc.status === 'Submitted'
+    (jc) => jc.status === 'Pending Review' || jc.status === 'Submitted' || jc.status === 'Resubmitted'
   );
   const changesRequested = jobCards.filter((jc) => jc.status === 'Changes Requested');
   const submittedToday = jobCards.filter(
-    (jc) => jc.status === 'Submitted' || jc.status === 'Pending Review'
+    (jc) => jc.status === 'Submitted' || jc.status === 'Pending Review' || jc.status === 'Resubmitted'
   );
   const approvedCards = jobCards.filter(
     (jc) => jc.status === 'Approved' || jc.status === 'Completed'

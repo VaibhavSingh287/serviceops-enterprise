@@ -41,7 +41,7 @@ export const JobCardListView: React.FC<JobCardListViewProps> = ({
 
   const filteredCards = jobCards.filter((jc) => {
     if (approvalsOnly) {
-      if (jc.status !== 'Pending Review' && jc.status !== 'Submitted') return false;
+      if (jc.status !== 'Pending Review' && jc.status !== 'Submitted' && jc.status !== 'Resubmitted') return false;
     } else if (statusFilter !== 'ALL' && jc.status !== statusFilter) {
       return false;
     }
@@ -120,6 +120,7 @@ export const JobCardListView: React.FC<JobCardListViewProps> = ({
                 <option value="In Progress">In Progress</option>
                 <option value="Pending Review">Pending Review</option>
                 <option value="Changes Requested">Changes Requested</option>
+                <option value="Resubmitted">Resubmitted</option>
                 <option value="Approved">Approved</option>
                 <option value="Completed">Completed</option>
                 <option value="Rejected">Rejected</option>
