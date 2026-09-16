@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { JobCard, ChecklistItem, ChecklistItemStatus, JobCardPart, AttachmentItem } from '../../types';
+import { STANDARD_CHECKLIST_TEMPLATE } from '../../data/mockData';
 import { StatusBadge, PriorityBadge } from '../common/StatusBadge';
 import {
   CheckCircle2,
@@ -51,11 +52,17 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   const [activeIssueChecklistId, setActiveIssueChecklistId] = useState<string | null>(null);
   const [submitConfirmOpen, setSubmitConfirmOpen] = useState<boolean>(false);
   const [resubmissionNotes, setResubmissionNotes] = useState<string>('');
+  const [selectedPhotoCategory, setSelectedPhotoCategory] = useState<string>('Before Service');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Initialize form state
   useEffect(() => {
     if (originalCard) {
-      setFormData(JSON.parse(JSON.stringify(originalCard)));
+      const cloned = JSON.parse(JSON.stringify(originalCard));
+      if (!cloned.checklist || cloned.checklist.length === 0) {
+        cloned.checklist = JSON.parse(JSON.stringify(STANDARD_CHECKLIST_TEMPLATE));
+      }
+      setFormData(cloned);
       setActiveStep(originalCard.currentStep || 1);
     }
   }, [originalCard?.id]);
@@ -208,6 +215,7 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
     });
     const updated = { ...formData, checklist: updatedChecklist };
     setFormData(updated);
+    saveJobCardDraft(updated);
   };
 
   // Parts updates
@@ -356,9 +364,6 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
   };
 
   // Photographic Evidence Attachments
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-  const [selectedPhotoCategory, setSelectedPhotoCategory] = useState<string>('Before Service');
-
   const handleAddAttachmentPhoto = (category: string) => {
     if (isReadOnly) return;
     const sampleEquipmentPhotos = [
@@ -921,14 +926,14 @@ export const JobCardEditor: React.FC<{ jobCardId: string }> = ({ jobCardId }) =>
                 </p>
               </div>
               <div className="text-xs font-semibold px-3 py-1 bg-slate-100 rounded-full text-slate-700">
-                {formData.checklist.filter((c) => c.status !== 'Pending').length} of{' '}
-                {formData.checklist.length} Completed
+                {(formData.checklist || []).filter((c) => c.status !== 'Pending').length} of{' '}
+                {(formData.checklist || []).length} Completed
               </div>
             </div>
 
             {/* Checklist items list */}
             <div className="space-y-3">
-              {formData.checklist.map((item) => {
+              {(formData.checklist || []).map((item) => {
                 const isIssue = item.status === 'Issue Found';
                 const isCompleted = item.status === 'Completed';
                 const isNA = item.status === 'Not Applicable';

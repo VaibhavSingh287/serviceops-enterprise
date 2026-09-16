@@ -56,18 +56,11 @@ const AppContent: React.FC = () => {
     if (!activeCard) return null;
 
     // If user is a Manager or Operations reviewing, render Manager Review workspace
-    if (
-      currentUser.role === 'MANAGER' ||
-      currentUser.role === 'OPERATIONS' ||
-      activeCard.status === 'Pending Review' ||
-      activeCard.status === 'Submitted' ||
-      activeCard.status === 'Approved' ||
-      activeCard.status === 'Completed'
-    ) {
+    if (currentUser.role === 'MANAGER' || currentUser.role === 'OPERATIONS') {
       return <ManagerJobCardReview jobCardId={activeCard.id} />;
     }
 
-    // Default to guided Field Engineer editor
+    // Default to guided Field Engineer editor (read-only states locked inside JobCardEditor)
     return <JobCardEditor jobCardId={activeCard.id} />;
   };
 

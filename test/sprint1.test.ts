@@ -233,10 +233,80 @@ async function runSprint1Verification() {
   assert(!eng1Cards.some((c) => c.id === team2Card.id), 'Engineer 1 scoped list excludes other engineers cards');
 
   // ----------------------------------------------------
+  // VERIFICATION 9: Technical Inspection Checklist Data Flow & Lifecycle
+  // ----------------------------------------------------
+  console.log('\nTest 9: Technical Inspection Checklist Data Flow & Persistence');
+  // 1. Create a card with default (empty) checklist passed from client
+  const chkCardRes = db.createJobCard(engineer1, {
+    customerName: 'Bharat Petroleum Refinery',
+    customerId: 'cust-bpr-01',
+    equipmentName: 'Rotary Screw Compressor unit 4',
+    equipmentId: 'eq-bpr-04',
+    workPerformed: 'Routine maintenance and vibration analysis conducted.',
+    customerSignOff: {
+      signeeName: 'R. K. Verma',
+      signatureDate: '2026-03-30',
+      isConfirmed: true,
+      signatureDataUrl: 'data:image/svg+xml;utf8,<svg></svg>',
+    },
+  });
+  assert(chkCardRes.status === 201 && !!chkCardRes.card, 'Engineer 1 creates job card for checklist test');
+  const chkCard = chkCardRes.card!;
+  assert(Array.isArray(chkCard.checklist) && chkCard.checklist.length === 6, 'Created card has all 6 checklist items');
+  const pendingCount = chkCard.checklist.filter((c) => c.status === 'Pending').length;
+  assert(pendingCount === 6, 'Initial state: 0 of 6 completed (all 6 Pending)');
+
+  // 2. Submitting with pending checklist items must fail with HTTP 400
+  const earlySubmit = db.submitJobCard(engineer1, chkCard.id);
+  assert(earlySubmit.status === 400, 'Submitting with pending checklist items rejected (HTTP 400)');
+
+  // 3. Update checklist items (Completed, Issue Found, Not Applicable)
+  const updatedChecklist = chkCard.checklist.map((item, idx) => {
+    if (idx === 0) return { ...item, status: 'Completed' as const };
+    if (idx === 1) return { ...item, status: 'Completed' as const };
+    if (idx === 2) {
+      return {
+        ...item,
+        status: 'Issue Found' as const,
+        issue: {
+          description: 'High discharge temperature detected (98°C)',
+          severity: 'Critical' as const,
+          recommendation: 'Replace thermal bypass valve element',
+        },
+      };
+    }
+    if (idx === 3) return { ...item, status: 'Completed' as const };
+    if (idx === 4) return { ...item, status: 'Completed' as const };
+    return { ...item, status: 'Not Applicable' as const };
+  });
+
+  const saveChkRes = db.updateJobCard(engineer1, chkCard.id, { checklist: updatedChecklist });
+  assert(saveChkRes.status === 200, 'Checklist updates saved successfully (HTTP 200)');
+
+  // 4. Reload from database and verify persistence
+  const reloadedCard = db.getScopedJobCard(engineer1, chkCard.id).card!;
+  assert(reloadedCard.checklist.length === 6, 'Checklist contains all 6 items after reload');
+  const completedCount = reloadedCard.checklist.filter((c) => c.status !== 'Pending').length;
+  assert(completedCount === 6, 'Checklist counter reports 6 of 6 completed');
+  const issueItem = reloadedCard.checklist.find((c) => c.status === 'Issue Found');
+  assert(!!issueItem && issueItem.issue?.severity === 'Critical', 'Issue Found item and details persisted correctly');
+
+  // 5. Submit with fully completed checklist now succeeds
+  const chkSubmit = db.submitJobCard(engineer1, chkCard.id);
+  assert(chkSubmit.status === 200, 'Submitting with completed checklist succeeds (HTTP 200)');
+  assert(chkSubmit.card?.status === 'Pending Review', 'Card is now in Pending Review');
+
+  // 6. Confirm read-only states lock the checklist from engineer modification
+  const lockedEdit = db.updateJobCard(engineer1, chkCard.id, {
+    checklist: updatedChecklist.map((c) => ({ ...c, status: 'Pending' as const })),
+  });
+  assert(lockedEdit.status === 403, 'Engineer cannot edit checklist in Pending Review state (HTTP 403)');
+
+  // ----------------------------------------------------
   // VERIFICATION SUMMARY
   // ----------------------------------------------------
   console.log('\n======================================================');
-  console.log('✅ ALL 8 SYSTEM VERIFICATION TESTS PASSED (100% GREEN)');
+  console.log('✅ ALL 9 SYSTEM VERIFICATION TESTS PASSED (100% GREEN)');
   console.log('======================================================\n');
 }
 

@@ -7,6 +7,7 @@ import {
   INITIAL_EQUIPMENT,
   INITIAL_INVENTORY,
   INITIAL_JOB_CARDS,
+  STANDARD_CHECKLIST_TEMPLATE,
 } from '../src/data/mockData';
 
 // User with password credentials (stored server-side ONLY)
@@ -79,7 +80,11 @@ class ServerDatabase {
 
     // 2. Initialize Job Cards
     INITIAL_JOB_CARDS.forEach((jc) => {
-      this.jobCards.set(jc.id, { ...jc });
+      const card: JobCard = { ...jc };
+      if (!card.checklist || card.checklist.length === 0) {
+        card.checklist = JSON.parse(JSON.stringify(STANDARD_CHECKLIST_TEMPLATE));
+      }
+      this.jobCards.set(card.id, card);
     });
 
     // Add explicit test Job Cards to ensure every engineer has targeted test cases
@@ -439,11 +444,20 @@ class ServerDatabase {
     return true;
   }
 
+  // Helper to ensure job card always has configured inspection checklist items
+  private sanitizeChecklist(card: JobCard): JobCard {
+    if (!card.checklist || card.checklist.length === 0) {
+      card.checklist = JSON.parse(JSON.stringify(STANDARD_CHECKLIST_TEMPLATE));
+      this.jobCards.set(card.id, card);
+    }
+    return card;
+  }
+
   // --- Scoped Data Access ---
 
   // Get Job Cards strictly scoped to the authenticated user's role and identity
   public getScopedJobCards(user: User): JobCard[] {
-    const all = Array.from(this.jobCards.values());
+    const all = Array.from(this.jobCards.values()).map((jc) => this.sanitizeChecklist(jc));
 
     if (user.role === 'FIELD_ENGINEER') {
       // Field Engineer sees ONLY their own assigned Job Cards
@@ -465,10 +479,11 @@ class ServerDatabase {
 
   // Get Single Job Card with strict authorization enforcement
   public getScopedJobCard(user: User, jobCardId: string): { status: number; card?: JobCard; error?: string } {
-    const card = this.jobCards.get(jobCardId);
-    if (!card) {
+    const rawCard = this.jobCards.get(jobCardId);
+    if (!rawCard) {
       return { status: 404, error: 'Job Card not found' };
     }
+    const card = this.sanitizeChecklist(rawCard);
 
     if (user.role === 'FIELD_ENGINEER') {
       if (card.assignedEngineerId !== user.id) {
@@ -561,7 +576,10 @@ class ServerDatabase {
       status: 'Draft',
       currentStep: 1,
       completedSteps: [],
-      checklist: data.checklist || [],
+      checklist:
+        data.checklist && data.checklist.length > 0
+          ? data.checklist
+          : JSON.parse(JSON.stringify(STANDARD_CHECKLIST_TEMPLATE)),
       parts: data.parts || [],
       workPerformed: data.workPerformed || '',
       recommendations: data.recommendations || '',
@@ -683,10 +701,18 @@ class ServerDatabase {
       }
     }
 
+    const finalChecklist =
+      updates.checklist && updates.checklist.length > 0
+        ? updates.checklist
+        : card.checklist && card.checklist.length > 0
+        ? card.checklist
+        : JSON.parse(JSON.stringify(STANDARD_CHECKLIST_TEMPLATE));
+
     // Preserve immutable server-authoritative fields
     const updatedCard: JobCard = {
       ...card,
       ...updates,
+      checklist: finalChecklist,
       id: card.id, // Immutable ID
       assignedEngineerId: card.assignedEngineerId, // Immutable engineer assignment
       assignedEngineerName: card.assignedEngineerName,
@@ -798,7 +824,14 @@ class ServerDatabase {
       };
     }
 
-    const uninspected = (card.checklist || []).filter((c) => c.status === 'Pending');
+    if (!card.checklist || card.checklist.length === 0) {
+      return {
+        status: 400,
+        error: 'Diagnostic checklist is missing or empty. Complete all inspection checklist items before submission.',
+      };
+    }
+
+    const uninspected = card.checklist.filter((c) => c.status === 'Pending');
     if (uninspected.length > 0) {
       return {
         status: 400,
