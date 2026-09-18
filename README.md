@@ -1,54 +1,67 @@
 # ServiceOps Enterprise
 
-ServiceOps Enterprise is a digital service operations platform designed for industrial field service management, multi-step technical inspections, supervisor approval governance, and inventory tracking with full audit traceability.
+ServiceOps Enterprise is a web application for field service operations, multi-step technical inspections, supervisor approval workflows, and centralized inventory tracking with audit logging.
+
+---
+
+## In-Memory Storage & Persistence Notice
+
+> **Important**: This application currently uses an **in-memory server-side state engine** (`server/db.ts`).
+> - **Job cards** reset to seed data when the server restarts.
+> - **Inventory levels and stock movements** reset when the server restarts.
+> - **Audit history and revision logs** reset when the server restarts.
+> - **User accounts and credentials** are re-initialized from seed definitions upon process restart.
+> - An administrative endpoint (`POST /api/system/reset`) is available to re-seed the system state on demand.
+>
+> The project does not currently integrate an external database (such as PostgreSQL, MySQL, Cloud SQL, or Redis).
 
 ---
 
 ## Business Problem
 
-Industrial equipment maintenance and field service operations often struggle with manual, fragmented processes:
+Industrial equipment maintenance and field service operations often encounter workflow inefficiencies and compliance gaps:
 
-- **Paper-Based & Disconnected Job Sheets**: Field inspections frequently rely on paper forms or static spreadsheets, causing delays, illegible handwriting, incomplete inspection steps, and lost service records.
-- **Lack of Governance & Approval Controls**: Without enforceable lifecycle gates, incomplete or non-compliant service reports bypass supervisory review, risking customer disputes and safety liabilities.
-- **Siloed Team Visibility**: Service managers require strict oversight of their direct reports without exposing cross-team data or customer accounts.
-- **Untracked Inventory Consumption**: Parts used during field repairs are often manually recorded, causing inventory discrepancies, unauthorized adjustments, and stockouts.
-- **Absence of Audit Traceability**: Regulated industrial environments require an immutable record of every inspection finding, manager decision, revision request, and stock movement.
+- **Disconnected Job Sheets**: Field inspections frequently rely on paper forms or unstructured notes, leading to incomplete diagnostic records, delayed billing, and lost equipment history.
+- **Lack of Approval Controls**: Without enforceable lifecycle gates, unverified or deficient service reports risk premature closure without supervisory review.
+- **Cross-Team Access Risks**: Service managers need direct oversight of their assigned technical teams without unauthorized visibility into other service teams.
+- **Uncontrolled Inventory Consumption**: Parts used during on-site repairs are often recorded inconsistently, creating inventory discrepancies, untracked stock adjustments, and unexpected stockouts.
+- **Absence of Audit Traceability**: Industrial maintenance requires a verifiable trail of every inspection finding, manager decision, revision request, and inventory movement.
 
-ServiceOps Enterprise addresses these challenges by providing a unified, role-governed platform with structured digital job cards, multi-tier supervisory workflows, real-time inventory adjustments with mandatory justifications, and end-to-end operational audit logging.
+ServiceOps Enterprise addresses these challenges with structured digital job cards, multi-tier supervisory workflows, centralized inventory tracking with mandatory adjustment reasons, and server-side audit logging.
 
 ---
 
 ## Core Features
 
-- **Guided Digital Job Card Workflow**: Multi-step editor covering customer info, equipment metadata, diagnostic checklists, replacement parts, work performed documentation, photo attachments, customer sign-off with digital signature capture, and printable job sheet generation.
-- **Standardized Technical Inspection Checklists**: Pre-configured diagnostic checkpoints across Safety, Mechanical, Electrical, Operational, and Environmental categories with status tagging (`Completed`, `Issue Found`, `Not Applicable`, `Pending`) and severity classification (`Minor`, `Moderate`, `Critical`).
-- **Supervisory Approval & Revision Management**: Managers can review submitted cards, request revisions with specific affected sections and instructions, approve completed jobs, or reject cards with required justification codes.
-- **Inventory & Spare Parts Management**: Real-time SKU tracking, unit cost and price tracking, reorder alert thresholds, bin locations, and stock adjustments with mandatory business reasons and negative-stock safeguards.
+- **Guided Digital Job Card Workflow**: Multi-step editor covering customer information, equipment metadata, diagnostic inspection checkpoints, replacement parts, work performed documentation, photo attachments, customer sign-off with digital signature capture, and printable job summary sheets.
+- **Technical Inspection Checklists**: Pre-configured diagnostic checkpoints across Safety, Mechanical, Electrical, Operational, and Environmental categories with status tagging (`Completed`, `Issue Found`, `Not Applicable`, `Pending`) and severity classification (`Minor`, `Moderate`, `Critical`).
+- **Supervisory Approval & Revision Management**: Managers can review submitted cards, request revisions with specific affected sections and instructions, approve work orders, or reject cards with required justification codes.
+- **Centralized Inventory Tracking**: Centralized inventory tracking with stock adjustments, negative-stock safeguards, mandatory business reasons, and audit history.
 - **Audit Logging & Revision History**: Comprehensive audit records capturing actors, timestamps, state transitions, managerial feedback, and inventory movements.
-- **AI-Assisted Diagnostics (with Deterministic Fallback)**: Server-side AI assistance for drafting work summaries, auditing job cards for diagnostic inconsistencies, and recommending replacement parts from the inventory catalog. When an API key is not configured, deterministic rule-based algorithms ensure full offline availability.
+- **Optional AI-Assisted Diagnostics (with Deterministic Fallback)**: Server-side AI assistance for drafting work summaries, auditing job cards for diagnostic inconsistencies, and recommending replacement parts from the inventory catalog. When an API key is not configured, deterministic rule-based algorithms handle all requests.
 
 ---
 
 ## Role-Based Access Control (RBAC) & Team Boundaries
 
-The system enforces strict multi-role authorization across four organizational tiers:
+The system enforces server-side authorization across four organizational roles:
 
 | Role | Operational Scope | Default Permissions |
 | :--- | :--- | :--- |
-| **Field Engineer** | Assigned Work Orders & On-Site Servicing | Create and edit assigned job cards; complete inspection checklists; record parts used; capture customer signatures; submit job cards for review; address and resubmit revision requests. Access is strictly scoped to assigned cards. |
-| **Manager** | Team Supervision & Work Order Governance | Review submitted and resubmitted job cards for assigned direct reports; approve work orders; request revisions with affected sections and feedback; reject non-compliant cards with mandatory justification codes. Access is strictly bounded to the manager's assigned team. |
-| **Operations** | Inventory Control & Commercial Oversight | View all job cards for pricing verification; manage parts catalog master data; perform stock level adjustments with mandatory audit reasons; view inventory movement history. |
-| **Admin** | System Administration & Governance | Global visibility across all teams and cards; manage user accounts and active statuses; assign engineers to managers; reset user credentials; view system-wide audit logs; execute database resets. |
+| **Field Engineer** | Assigned Work Orders & On-Site Servicing | Create and edit assigned job cards; complete inspection checklists; record parts used; capture customer signatures; submit job cards for review; address and resubmit revision requests. Access is restricted to assigned cards. |
+| **Manager** | Team Supervision & Work Order Governance | Review submitted and resubmitted job cards for assigned direct reports; approve work orders; request revisions with affected sections and feedback; reject non-compliant cards with mandatory justification codes. Access is restricted to the manager's assigned team. |
+| **Operations** | Inventory Control & Parts Oversight | View job cards for pricing verification; manage parts catalog master data; perform stock level adjustments with mandatory audit reasons; view inventory movement history. |
+| **Admin** | System Administration & Governance | System-wide visibility across all teams and cards; manage user accounts and active statuses; assign engineers to managers; reset user passwords; view system audit logs; trigger database re-seeding. |
 
 ### Team Hierarchy & Boundary Enforcement
 
 - Field Engineers are assigned to a specific Service Manager (e.g., Team North under `MGR-001`, Team South under `MGR-002`).
 - Access rules are enforced server-side:
-  - Engineers attempting to view or edit another engineer's job card receive `HTTP 403 Forbidden`.
+  - Field Engineers attempting to view or edit another engineer's job card receive `HTTP 403 Forbidden`.
   - Managers attempting to review, approve, request revisions on, or reject a job card from another team receive `HTTP 403 Forbidden`.
-  - Scoped list endpoints (`/api/jobcards`, `/api/users`) filter data at the database level to match the user's role and team assignment.
+  - Scoped list endpoints (`/api/jobcards`, `/api/users`) filter data at the database level according to the authenticated user's role and team assignment.
 
-*Refer to [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for pre-seeded user accounts and organizational reporting structure.*
+*Refer to [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for pre-seeded user accounts and team hierarchy.*
 
 ---
 
@@ -57,50 +70,69 @@ The system enforces strict multi-role authorization across four organizational t
 Job cards transition through an enforced state machine:
 
 ```
- [Draft] ───► [In Progress] ───► [Pending Review] ───► [Approved] ───► [Completed]
-    ▲                                │         ▲
-    │                                ▼         │
-    └────── [Changes Requested] ◄────┘         │
-                   │                           │
-                   └──────────► [Resubmitted] ─┘
-                                     │
-                                     ▼
-                                [Rejected] (Terminal)
+        [Draft] <───────────────> [In Progress]
+           │                             │
+           └──────────────┬──────────────┘
+                          │ (Submit)
+                          ▼
+                   [Pending Review] ──────────────────────┐
+                    │            ▲                        │
+       (Request     │            │ (Resubmit)             │ (Reject)
+        Changes)    ▼            │                        ▼
+     [Changes Requested] ──► [Resubmitted]           [Rejected] (Terminal)
+                                 │
+                                 │ (Approve)
+                                 ▼
+                             [Approved]
 ```
 
-### Lifecycle States
+### Supported Lifecycle States
 
-1. **Draft**: Initial state upon job card creation. Field Engineers populate customer details, equipment metadata, diagnostic checklists, and parts.
-2. **In Progress**: Active work phase as inspections and repairs proceed.
-3. **Pending Review**: Field Engineer submits the completed job card. The system validates:
-   - Customer and equipment records are populated
+1. **Draft**: Initial state upon job card creation. Field Engineers enter customer details, equipment metadata, diagnostic checklists, and parts.
+2. **In Progress**: Active servicing phase. Field Engineers can toggle cards between `Draft` and `In Progress`.
+3. **Pending Review**: Field Engineer submits the completed job card. The server validates that:
+   - Customer and equipment records are selected
    - Work performed narrative contains at least 15 characters
    - All diagnostic checklist checkpoints are inspected (zero `Pending` items)
    - Customer sign-off is confirmed with a signee name and signature
-4. **Changes Requested**: Manager identifies deficiencies during supervisory review. The manager must specify at least one affected section (e.g., Checklist, Parts, Work Summary) and detailed feedback notes.
-5. **Resubmitted**: Field Engineer addresses the requested changes and resubmits the same job card. The card returns to the manager's review queue with updated revision history.
+4. **Changes Requested**: Manager requests revisions during review. The manager must provide at least one affected section (e.g., Checklist, Parts, Work Summary) and specific feedback notes.
+5. **Resubmitted**: Field Engineer addresses the requested changes and resubmits the card. The card returns to the manager's review queue with updated revision tracking.
 6. **Approved**: Manager authorizes the job card from `Pending Review` or `Resubmitted`. The card is locked against further engineer edits.
-7. **Rejected**: Terminal state. Manager rejects the card with a required justification category code and explanation. The card is permanently locked.
-8. **Completed**: Final operational closure after all field and supervisory requirements have been met.
+7. **Rejected**: Terminal state. Manager rejects the card from `Pending Review` or `Resubmitted` with a required justification category code and explanation. The card is permanently locked.
 
-### Lifecycle Enforcement Rules
+*Note on `Completed`*: The `Completed` status exists in the system type definitions and as an archived status in seed data (e.g., `JC-2026-0042`), and can be assigned by Administrators. However, standard operational workflows conclude with supervisory authorization at `Approved` (or termination at `Rejected`).
 
-- **Edit Protection**: Only cards in `Draft`, `In Progress`, or `Changes Requested` can be modified by engineers. Any PUT request on cards in `Pending Review`, `Approved`, `Rejected`, or `Completed` is rejected with `HTTP 403 Forbidden`.
-- **Review Queue Integrity**: Approvals, revision requests, and rejections are only permitted on cards currently in `Pending Review` or `Resubmitted`.
-- **Revision History**: Every submission, revision request, resubmission, approval, and rejection records an audit log entry with actor ID, role, timestamp, previous state, new state, and relevant feedback or justification.
+### Lifecycle Enforcement & Edit-Locking Rules
+
+- **Edit Permissions**: Field Engineers can only modify their own job cards when in `Draft`, `In Progress`, or `Changes Requested` status.
+- **Review Queue Locking**: Cards in `Pending Review` or `Resubmitted` status are locked against engineer modifications (`HTTP 403 Forbidden`) while awaiting supervisory decision.
+- **Finalized Status Locking**: Cards in `Approved`, `Rejected`, or `Completed` status cannot be modified by engineers or managers (`HTTP 403 Forbidden`).
+- **Supervisory Constraints**: Approvals, revision requests, and rejections are only accepted on cards currently in `Pending Review` or `Resubmitted` status.
+- **Audit Logging**: Every state transition records an entry with actor ID, role, timestamp, previous state, new state, and associated feedback or justification.
 
 ---
 
 ## AI-Assisted Functionality
 
-The platform provides optional AI-assisted features powered by the `@google/genai` SDK (`gemini-3.8-flash`), proxied exclusively through server-side endpoints to protect credentials:
+The application includes optional AI assistance using the `@google/genai` TypeScript SDK with the `gemini-3.8-flash` model. All AI calls are executed server-side to protect credentials:
 
-1. **Service Summary Generation (`POST /api/ai/service-summary`)**: Synthesizes customer-reported symptoms, checklist faults, replacement parts, and technician notes into a structured narrative and actionable recommendations.
-   - *Fallback*: Rule-based synthesis that formats reported symptoms, identified issues, and installed parts into a standardized technical summary without external API calls.
-2. **Quality & Completeness Audit (`POST /api/ai/check-jobcard`)**: Evaluates job cards for missing mandatory data, symptom-to-repair inconsistencies (e.g., thermal overheating reported without cooling system checks), and catalog pricing variances.
-   - *Fallback*: Deterministic heuristic checks analyzing required field completeness, symptom-to-work keyword consistency, checklist-to-parts correlation, and item-by-item price variance calculations.
-3. **Inventory Part Suggestions (`POST /api/ai/suggest-parts`)**: Suggests relevant parts from available inventory based on equipment type and reported failure modes.
-   - *Fallback*: Category and keyword-matching algorithm filtering inventory items based on equipment category and diagnostic keywords (e.g., filters, seals, sensors).
+1. **Service Summary Generation (`POST /api/ai/service-summary`)**: Synthesizes customer-reported symptoms, checklist faults, replacement parts, and technician notes into a structured work performed narrative and maintenance recommendations.
+   - *Deterministic Fallback*: When `GEMINI_API_KEY` is unset or omitted, formats reported symptoms, identified issues, and installed parts into a standardized technical summary without external API calls.
+2. **Job Card Quality Audit (`POST /api/ai/check-jobcard`)**: Evaluates job cards for missing required data, symptom-to-repair diagnostic discrepancies (e.g., thermal overheating reported without cooling system checks), and catalog pricing variances.
+   - *Deterministic Fallback*: Evaluates mandatory field completeness, flags inventory pricing variances against master catalog prices, and runs keyword-based diagnostic consistency checks.
+3. **Inventory Part Suggestions (`POST /api/ai/suggest-parts`)**: Suggests applicable spare parts from available inventory based on equipment type and reported symptoms.
+   - *Deterministic Fallback*: Keyword and category matching algorithm filtering inventory items by equipment category and diagnostic terms (e.g., filters, seals, gaskets, sensors).
+
+When no `GEMINI_API_KEY` is provided, all AI endpoints automatically use deterministic fallback handlers, ensuring full application functionality offline or without API keys.
+
+---
+
+## Security & Authentication
+
+- **Password Hashing**: User passwords are stored using salted `bcryptjs` password hashes with 10 salt rounds.
+- **Session Management**: Authenticated sessions use 24-hour in-memory session tokens generated via `crypto.randomBytes(32).toString('hex')`. Tokens are transmitted via `Authorization: Bearer <token>` headers or `serviceops_session` HttpOnly cookies.
+- **Server-Side Authorization**: Every API route validates user session validity, role permissions, and team ownership before processing reads or mutations.
+- **Audit Logging**: Critical system events (logins, failed authentication attempts, job card updates, state transitions, stock adjustments, role modifications) are written to an internal audit ledger.
 
 ---
 
@@ -116,12 +148,11 @@ The platform provides optional AI-assisted features powered by the `@google/gena
 - **Backend**:
   - Node.js 20+ runtime
   - Express 4 (`express`)
-  - TypeScript compilation with `tsx` (development) and `esbuild` (production CJS bundle)
-  - `bcryptjs` (password hashing with 10 salt rounds)
+  - TypeScript execution with `tsx` (development) and bundling with `esbuild` (production CommonJS)
+  - `bcryptjs` (password hashing)
   - `@google/genai` (diagnostic assistance)
-- **Data Persistence & Storage**:
-  - In-memory relational state engine (`server/db.ts`) with pre-seeded datasets, foreign-key relationships, transactional stock ledger, and audit history.
-  - Reset capability (`POST /api/system/reset`) for administrative re-initialization.
+- **Data Persistence**:
+  - In-memory state engine (`server/db.ts`) with seed data, foreign-key relationships, stock ledger, and audit history.
 
 ---
 
@@ -134,7 +165,7 @@ The platform provides optional AI-assisted features powered by the `@google/gena
 
 ### Installation
 
-1. Clone the repository and navigate to the project root:
+1. Clone the repository and navigate to the project directory:
    ```bash
    git clone <repository-url>
    cd serviceops-enterprise
@@ -157,7 +188,7 @@ The platform provides optional AI-assisted features powered by the `@google/gena
    The application will be accessible at `http://localhost:3000`.
 
 5. Sign in:
-   Consult [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for demonstration account IDs (`ENG-001`, `MGR-001`, `OPS-001`, `ADM-001`). Enter the password configured in `DEV_SEED_PASSWORD` (or default if left unset).
+   Consult [DEMO_ACCOUNTS.md](DEMO_ACCOUNTS.md) for demonstration account IDs (`ENG-001`, `MGR-001`, `OPS-001`, `ADM-001`) and the default password configuration.
 
 ---
 
@@ -167,8 +198,8 @@ Configure the following variables in `.env`:
 
 | Variable | Required | Description | Default |
 | :--- | :--- | :--- | :--- |
-| `DEV_SEED_PASSWORD` | Optional | Initial password applied to all seeded demo accounts during local development. | `ServiceOps@2026!` |
-| `GEMINI_API_KEY` | Optional | API key for Gemini diagnostic features. If omitted, deterministic fallbacks handle all requests. | *None (Fallback active)* |
+| `DEV_SEED_PASSWORD` | Optional | Password applied to seeded demo accounts during local development. | `ServiceOps@2026!` |
+| `GEMINI_API_KEY` | Optional | API key for Gemini features. If omitted, deterministic fallbacks handle all requests. | *None (Fallback active)* |
 | `APP_URL` | Optional | Base URL where the application is hosted. | `http://localhost:3000` |
 
 ---
@@ -177,7 +208,7 @@ Configure the following variables in `.env`:
 
 ### Code Verification & Linting
 
-Run TypeScript static type-checking:
+Run TypeScript static type checking:
 ```bash
 npm run lint
 ```
@@ -189,16 +220,16 @@ Run the test suite verifying lifecycle transitions, role boundaries, checklist w
 npm test
 ```
 
-The test runner executes `test/sprint1.test.ts` covering:
-- Job card lifecycle transitions and illegal transition guards
+The test runner executes `test/sprint1.test.ts`, verifying:
+- Job card lifecycle transitions and invalid transition guards
 - Edit locking on `Pending Review`, `Approved`, and `Rejected` cards
-- Mandatory fields for revision requests (affected sections + feedback notes)
-- Mandatory fields for rejections (justification code + explanation)
+- Mandatory requirements for revision requests (affected sections and feedback notes)
+- Mandatory requirements for rejections (justification code and explanation)
 - Resubmission routing to the manager review queue
 - Audit trail recording for all transitions and actors
-- Team boundary isolation for managers (cross-team `403 Forbidden`)
-- Engineer isolation (cross-engineer `403 Forbidden`)
-- Technical inspection checklist data flow, counter tracking, and submission validation
+- Team boundary isolation for managers (cross-team `HTTP 403 Forbidden`)
+- Engineer isolation (cross-engineer `HTTP 403 Forbidden`)
+- Technical inspection checklist data flow, completion counters, and submission validation
 
 ### Production Build & Run
 
@@ -206,7 +237,7 @@ The test runner executes `test/sprint1.test.ts` covering:
    ```bash
    npm run build
    ```
-   This generates the static Vite build in `dist/` and the server bundle in `dist/server.cjs`.
+   This generates static Vite assets in `dist/` and compiles the backend server to `dist/server.cjs`.
 
 2. Start the production server:
    ```bash
@@ -219,19 +250,19 @@ The test runner executes `test/sprint1.test.ts` covering:
 
 ```
 ├── server/
-│   └── db.ts                   # In-memory database, RBAC checks, lifecycle state machine, audit logs
+│   └── db.ts                   # In-memory database, RBAC enforcement, lifecycle state machine, audit logs
 ├── server.ts                   # Express server, authentication middleware, API routes, Vite middleware
 ├── src/
 │   ├── components/
-│   │   ├── common/             # Shared badges, status indicators, UI controls
+│   │   ├── common/             # Shared status badges and UI indicators
 │   │   ├── document/           # Printable job card summary and customer sign-off modal
-│   │   ├── editor/             # Guided multi-step JobCardEditor for Field Engineers
-│   │   ├── manager/            # Manager review workspace with approval, revision, and rejection actions
-│   │   ├── views/              # Role-specific dashboards (Engineer, Manager, Operations, Admin, Inventory)
+│   │   ├── editor/             # Multi-step JobCardEditor for Field Engineers
+│   │   ├── manager/            # Manager review workspace for approvals, revisions, and rejections
+│   │   ├── views/              # Role-specific dashboard views (Engineer, Manager, Operations, Admin)
 │   │   ├── Header.tsx          # Application header and user session controls
 │   │   └── Sidebar.tsx         # Role-scoped primary navigation
 │   ├── context/
-│   │   └── AppContext.tsx      # Client application state, auth context, and API dispatchers
+│   │   └── AppContext.tsx      # Client application state, authentication context, and API dispatchers
 │   ├── data/
 │   │   └── mockData.ts         # Initial seed dataset (users, equipment, customers, inventory, checklists)
 │   ├── types.ts                # TypeScript definitions for entities, roles, and lifecycle states
@@ -247,10 +278,9 @@ The test runner executes `test/sprint1.test.ts` covering:
 
 ---
 
-## Limitations & Future Improvements
+## Known Limitations & Future Improvements
 
-- **In-Memory Storage**: The current implementation stores state in-memory on the server. Data resets on server restart unless re-seeded. Production deployment would transition to a persistent database (e.g., PostgreSQL or Cloud SQL).
-- **Session Persistence**: Sessions are stored in-memory using secure session tokens. Integrating distributed session storage (e.g., Redis) or encrypted JWTs would support horizontal scaling.
-- **Offline Sync**: While the frontend handles responsive user inputs and deterministic AI fallbacks, an offline-first Service Worker with local IndexedDB queueing would enable field technicians to operate in remote areas without active network connectivity.
-- **PDF Export**: The document modal currently renders formatted HTML print views; direct server-side binary PDF generation via Puppeteer or PDFKit would enhance export capabilities.
-- **Push Notifications**: Real-time notifications for manager revision requests and approval updates could be added via WebSockets or Server-Sent Events (SSE).
+- **In-Memory Storage**: Application state is currently maintained in-memory on the server. Data resets when the server process restarts. Integrating an external database (such as PostgreSQL) would provide persistent storage across restarts.
+- **Distributed Sessions**: Sessions are currently stored in server memory. Introducing a distributed session store (e.g., Redis) or stateless tokens would support horizontal scaling across multiple instances.
+- **Offline Synchronization**: Field engineers operating in low-connectivity areas would benefit from local IndexedDB caching and background synchronization via a Service Worker.
+- **PDF Generation**: The application currently provides browser-based printable HTML job sheets; direct server-side PDF generation would enhance export consistency.
